@@ -1,23 +1,32 @@
 CXX      = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra
+CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -MMD -MP
 
-LIB_SRC  = $(filter-out src/main.cpp, $(wildcard src/*.cpp))
-HEADERS  = $(wildcard src/*.h)
+SRC      = $(wildcard src/*.cpp)
+LIB_OBJ  = $(patsubst src/%.cpp, build/%.o, $(filter-out src/main.cpp, $(SRC)))
+TESTS    = tokenizer_test parser_test
 
-minidb: src/*.cpp $(HEADERS)
-	$(CXX) $(CXXFLAGS) -o minidb src/*.cpp
+minidb: build/main.o $(LIB_OBJ)
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
-test: tokenizer_test parser_test
-	./tokenizer_test
-	./parser_test
+test: $(TESTS)
+	@for t in $(TESTS); do ./$$t || exit 1; done
 
-tokenizer_test: tests/tokenizer_test.cpp $(LIB_SRC) $(HEADERS)
-	$(CXX) $(CXXFLAGS) -o tokenizer_test tests/tokenizer_test.cpp $(LIB_SRC)
+%_test: build/%_test.o $(LIB_OBJ)
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
-parser_test: tests/parser_test.cpp $(LIB_SRC) $(HEADERS)
-	$(CXX) $(CXXFLAGS) -o parser_test tests/parser_test.cpp $(LIB_SRC)
+build/%.o: src/%.cpp | build
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+build/%.o: tests/%.cpp | build
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+build:
+	mkdir -p build
 
 clean:
-	rm -f minidb tokenizer_test parser_test
+	rm -rf build minidb $(TESTS)
+
+-include $(wildcard build/*.d)
 
 .PHONY: test clean
+.SECONDARY:
