@@ -7,7 +7,10 @@ public:
     Statement parseStatement() {
         if (peek().type == TokenType::CREATE) {
             return parseCreate();
-        } else {
+        } if (peek().type == TokenType::INSERT) {
+            return parseInsert();
+        }
+         else {
             throw ParseError("Unknown command");
         }
     }
@@ -68,6 +71,41 @@ private:
         }
         return col;
     }
+
+    Statement parseInsert() {
+        Statement s;
+        s.type = StatementType::INSERT;
+
+        expect(TokenType::INSERT, "INSERT");
+        expect(TokenType::INTO, "INTO");
+        s.table = expect(TokenType::IDENTIFIER, "table name").text;
+        expect(TokenType::VALUES, "VALUES");
+        expect(TokenType::LPAREN, "(");
+        do {
+            s.values.push_back(parseValue());
+        } while(match(TokenType::COMMA));
+        expect(TokenType::RPAREN, ")");
+        match(TokenType::SEMICOLON);
+        expect(TokenType::END, "end");
+
+        return s;
+    }
+ 
+    Value parseValue() {
+        Value v;
+ 
+        if (peek().type == TokenType::NUMBER) {
+            v.type = ValueType::INT;
+            v.text = expect(TokenType::NUMBER, "number").text;
+        } else if (peek().type == TokenType::STRING) {
+            v.type = ValueType::TEXT;
+            v.text = expect(TokenType::STRING, "string").text;
+        } else {
+            throw ParseError("Expected a number or 'text'");
+        }
+        return v;
+    }
+
 };
 
 Statement parse(const std::vector<Token>& tokens) {

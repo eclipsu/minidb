@@ -11,3 +11,5 @@
 .idea/
 *.swp
 .DS_Store
+./minidb
+./parser_tests
