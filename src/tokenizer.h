@@ -17,12 +17,9 @@ enum class TokenType {
 
 struct Token {
     TokenType type;
-    std::string text;  // IDENTIFIER: the name, NUMBER: the digits,
-                       // STRING: contents WITHOUT quotes, others: anything
+    std::string text;
 };
 
-// Turns one SQL command into tokens. The last token is always END.
 std::vector<Token> tokenize(const std::string& input);
 
-// For printing tokens in tests and debugging, e.g. "GREATER_EQUAL".
 std::string tokenTypeName(TokenType type);

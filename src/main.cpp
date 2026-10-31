@@ -1,23 +1,24 @@
+#include "parser.h"
 #include "tokenizer.h"
 #include <iostream>
 #include <string>
 
-// For now the REPL just prints tokens so you can try the tokenizer by hand.
-// Later this will call the parser and executor instead.
 int main() {
     std::string line;
     while (true) {
         std::cout << "db > ";
         if (!std::getline(std::cin, line)) break;
-        if (line == ".exit" || line == "q") break;
+        if (line == ".exit") break;
+        if (line.empty()) continue;
 
-        for (const Token& t : tokenize(line)) {
-            std::cout << tokenTypeName(t.type);
-            if (t.type == TokenType::IDENTIFIER || t.type == TokenType::NUMBER ||
-                t.type == TokenType::STRING)
-                std::cout << "(" << t.text << ")";
-            std::cout << " ";
+        try {
+            Statement stmt = parse(tokenize(line));
+            std::cout << "Parsed CREATE TABLE " << stmt.table << " with columns:";
+            for (const Column& c : stmt.columns)
+                std::cout << " " << c.name << (c.type == ValueType::INT ? "(INT)" : "(TEXT)");
+            std::cout << "\n";
+        } catch (const ParseError& e) {
+            std::cout << "Syntax error: " << e.what() << "\n";
         }
-        std::cout << "\n";
     }
 }

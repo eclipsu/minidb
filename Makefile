@@ -1,21 +1,23 @@
 CXX      = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra
 
-# Every .cpp in src/ except main.cpp (tests have their own main)
 LIB_SRC  = $(filter-out src/main.cpp, $(wildcard src/*.cpp))
+HEADERS  = $(wildcard src/*.h)
 
-# make        -> build the program
-minidb: src/*.cpp src/*.h
+minidb: src/*.cpp $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o minidb src/*.cpp
 
-# make test   -> build and run the tests
-test: tokenizer_test
+test: tokenizer_test parser_test
 	./tokenizer_test
+	./parser_test
 
-tokenizer_test: tests/tokenizer_test.cpp $(LIB_SRC) src/*.h
+tokenizer_test: tests/tokenizer_test.cpp $(LIB_SRC) $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o tokenizer_test tests/tokenizer_test.cpp $(LIB_SRC)
 
+parser_test: tests/parser_test.cpp $(LIB_SRC) $(HEADERS)
+	$(CXX) $(CXXFLAGS) -o parser_test tests/parser_test.cpp $(LIB_SRC)
+
 clean:
-	rm -f minidb tokenizer_test
+	rm -f minidb tokenizer_test parser_test
 
 .PHONY: test clean

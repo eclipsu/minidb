@@ -1,8 +1,3 @@
-// Tokenizer tests. Run with:  make test
-//
-// Tests go from easiest to hardest. Work top to bottom:
-// make the first failing test pass, re-run, repeat.
-
 #include "../src/tokenizer.h"
 #include <iostream>
 #include <string>
@@ -12,7 +7,7 @@ using T = TokenType;
 
 struct Expected {
     TokenType type;
-    std::string text = "";  // only checked for IDENTIFIER, NUMBER, STRING
+    std::string text = "";
 };
 
 static int passed = 0;
