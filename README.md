@@ -6,7 +6,7 @@ MiniDB reads SQL commands from the terminal, breaks them into tokens, parses the
 
 ## Current Status
 
-The front end works: MiniDB can tokenize any command and parse `CREATE TABLE`. Nothing is stored or executed yet.
+The front end works: MiniDB can tokenize any command and parse `CREATE TABLE` and `INSERT`. Nothing is stored or executed yet.
 
 ```
 Tokenizer  →  Parser  →  Validator  →  Executor  →  Storage (B-Tree)
@@ -18,7 +18,7 @@ Tokenizer  →  Parser  →  Validator  →  Executor  →  Storage (B-Tree)
 | Stage     | Status                             | Tests            |
 | --------- | ---------------------------------- | ---------------- |
 | Tokenizer | All planned SQL tokens             | 46 passing       |
-| Parser    | `CREATE TABLE` only                | 15 passing       |
+| Parser    | `CREATE TABLE` and `INSERT`        | 32 passing       |
 | Validator | Not started                        | —                |
 | Executor  | Not started                        | —                |
 | Storage   | Not started                        | —                |
@@ -28,7 +28,7 @@ Tokenizer  →  Parser  →  Validator  →  Executor  →  Storage (B-Tree)
 | Command        | Example                                                  | Status      |
 | -------------- | -------------------------------------------------------- | ----------- |
 | `CREATE TABLE` | `CREATE TABLE users (id INT, name TEXT, age INT);`       | 🟡 Parsed   |
-| `INSERT`       | `INSERT INTO users VALUES (1, 'bob', 20);`               | ⬜ Planned  |
+| `INSERT`       | `INSERT INTO users VALUES (1, 'bob', 20);`               | 🟡 Parsed   |
 | `SELECT`       | `SELECT * FROM users;` or `SELECT name, age FROM users;` | ⬜ Planned  |
 | `WHERE`        | `SELECT * FROM users WHERE age > 18;`                    | ⬜ Planned  |
 | `UPDATE`       | `UPDATE users SET age = 21 WHERE id = 1;`                | ⬜ Planned  |
@@ -56,6 +56,10 @@ db > CREATE TABLE users (name TEXT, age INT);
 Parsed CREATE TABLE users with columns: name(TEXT) age(INT)
 db > CREATE TABLE users (id)
 Syntax error: Expected Int or Text
+db > INSERT INTO users VALUES (1, 'bob', 20);
+Parsed INSERT INTO users with values: 1 'bob' 20
+db > INSERT INTO users VALUES (id)
+Syntax error: Expected a number or 'text'
 db > SELECT * FROM users;
 Syntax error: Unknown command
 db > .exit
@@ -111,7 +115,7 @@ minidb/
 
 ## Data Structures Used
 
-- **Vector** — list of tokens, columns in a statement
+- **Vector** — list of tokens, columns and values in a statement
 - **Hash map** (`unordered_map`) _(planned)_ — table name → table lookup
 - **Expression tree** _(planned)_ — WHERE clauses like `age > 18 AND name = 'bob'`
 - **B-tree** _(planned)_ — index for fast lookups
@@ -122,7 +126,8 @@ minidb/
 - [x] Tokenizer
 - [x] Parse `CREATE TABLE`
 - [x] Syntax error messages for `CREATE TABLE`
-- [ ] Parse `INSERT`
+- [x] Parse `INSERT`
+- [x] Syntax error messages for `INSERT`
 - [ ] Validator
 - [ ] Executor for `CREATE TABLE` and `INSERT`
 - [ ] `SELECT *` and column selection
