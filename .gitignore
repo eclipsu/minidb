@@ -1,0 +1,13 @@
+# Build outputs
+/minidb
+/tokenizer_test
+/parser_test
+*.o
+*.d
+*.dSYM/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
