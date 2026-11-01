@@ -1,5 +1,3 @@
-// Parser tests, Lessons 2-6. Run with:  make test
-
 #include "../src/parser.h"
 #include "../src/tokenizer.h"
 #include <iostream>
@@ -18,7 +16,6 @@ static void fail(const std::string& name, const std::string& why) {
     std::cout << "  FAIL  " << name << "\n        " << why << "\n";
 }
 
-// Turns the columns into text like "id INT, name TEXT" so they're easy to compare.
 static std::string columnsToString(const Statement& s) {
     std::string out;
     for (size_t i = 0; i < s.columns.size(); i++) {
@@ -29,7 +26,6 @@ static std::string columnsToString(const Statement& s) {
     return out;
 }
 
-// The command should parse into this table name and these columns.
 static void expectCreate(const std::string& name, const std::string& sql,
                          const std::string& table, const std::string& columns) {
     try {
@@ -44,7 +40,6 @@ static void expectCreate(const std::string& name, const std::string& sql,
     }
 }
 
-// Turns the values into text like "INT 1, TEXT bob" so they're easy to compare.
 static std::string valuesToString(const Statement& s) {
     std::string out;
     for (size_t i = 0; i < s.values.size(); i++) {
@@ -55,7 +50,6 @@ static std::string valuesToString(const Statement& s) {
     return out;
 }
 
-// The command should parse as an INSERT with this table name and these values.
 static void expectInsert(const std::string& name, const std::string& sql,
                          const std::string& table, const std::string& values) {
     try {
@@ -72,7 +66,6 @@ static void expectInsert(const std::string& name, const std::string& sql,
     }
 }
 
-// Turns the selected columns into text like "name, age" ("*" when the list is empty).
 static std::string selectToString(const Statement& s) {
     if (s.selectColumns.empty()) return "*";
     std::string out;
@@ -83,7 +76,6 @@ static std::string selectToString(const Statement& s) {
     return out;
 }
 
-// The command should parse as a SELECT with this table name and these columns.
 static void expectSelect(const std::string& name, const std::string& sql,
                          const std::string& table, const std::string& columns) {
     try {
@@ -100,8 +92,6 @@ static void expectSelect(const std::string& name, const std::string& sql,
     }
 }
 
-// Turns a WHERE tree into text like "((age > 18) AND (name = 'bob'))".
-// Empty string when there's no WHERE. It calls itself on the children (recursion!).
 static std::string whereToString(const Expr* e) {
     if (e == nullptr) return "";
     if (e->kind == ExprKind::AND)
@@ -122,7 +112,6 @@ static std::string whereToString(const Expr* e) {
     return "(" + e->column + " " + op + " " + value + ")";
 }
 
-// The command should parse as a SELECT with this table and this WHERE condition.
 static void expectWhere(const std::string& name, const std::string& sql,
                         const std::string& table, const std::string& where) {
     try {
@@ -140,7 +129,6 @@ static void expectWhere(const std::string& name, const std::string& sql,
     }
 }
 
-// The command should be rejected with a ParseError.
 static void expectError(const std::string& name, const std::string& sql) {
     try {
         parse(tokenize(sql));
@@ -151,14 +139,14 @@ static void expectError(const std::string& name, const std::string& sql) {
 }
 
 int main() {
-    std::cout << "\n-- Lesson 2: valid CREATE TABLE --\n";
+    std::cout << "\nvalid CREATE TABLE --\n";
     expectCreate("one column",        "CREATE TABLE t (x INT)",                          "t",     "x INT");
     expectCreate("one TEXT column",   "CREATE TABLE t (x TEXT)",                         "t",     "x TEXT");
     expectCreate("three columns",     "CREATE TABLE users (id INT, name TEXT, age INT)", "users", "id INT, name TEXT, age INT");
     expectCreate("with semicolon",    "CREATE TABLE users (id INT);",                    "users", "id INT");
     expectCreate("lowercase",         "create table pets (name text)",                   "pets",  "name TEXT");
 
-    std::cout << "\n-- Lesson 2: broken CREATE TABLE --\n";
+    std::cout << "\nbroken CREATE TABLE --\n";
     expectError("no columns at all",        "CREATE TABLE users");
     expectError("missing (",                "CREATE TABLE users id INT)");
     expectError("missing )",                "CREATE TABLE users (id INT");
@@ -170,7 +158,7 @@ int main() {
     expectError("extra word after ;",       "CREATE TABLE users (id INT); extra");
     expectError("unknown command",          "DROP TABLE users");
 
-    std::cout << "\n-- Lesson 3: valid INSERT --\n";
+    std::cout << "\nvalid INSERT --\n";
     expectInsert("one number",        "INSERT INTO t VALUES (7)",                    "t",     "INT 7");
     expectInsert("one string",        "INSERT INTO t VALUES ('bob')",                "t",     "TEXT bob");
     expectInsert("mixed values",      "INSERT INTO users VALUES (1, 'bob', 20);",    "users", "INT 1, TEXT bob, INT 20");
@@ -178,7 +166,7 @@ int main() {
     expectInsert("string with spaces","INSERT INTO t VALUES ('hello world')",        "t",     "TEXT hello world");
     expectInsert("lowercase",         "insert into pets values (1, 'rex')",          "pets",  "INT 1, TEXT rex");
 
-    std::cout << "\n-- Lesson 3: broken INSERT --\n";
+    std::cout << "\nbroken INSERT --\n";
     expectError("missing INTO",              "INSERT users VALUES (1)");
     expectError("missing table name",        "INSERT INTO VALUES (1)");
     expectError("missing VALUES",            "INSERT INTO users (1)");
@@ -191,14 +179,14 @@ int main() {
     expectError("extra word after ;",        "INSERT INTO users VALUES (1); extra");
     expectError("unclosed string",           "INSERT INTO users VALUES ('bob)");
 
-    std::cout << "\n-- Lesson 4: valid SELECT --\n";
+    std::cout << "\nvalid SELECT --\n";
     expectSelect("star",             "SELECT * FROM users",              "users", "*");
     expectSelect("one column",       "SELECT name FROM users",           "users", "name");
     expectSelect("two columns",      "SELECT name, age FROM users",      "users", "name, age");
     expectSelect("with semicolon",   "SELECT * FROM users;",             "users", "*");
     expectSelect("lowercase",        "select id from pets",              "pets",  "id");
 
-    std::cout << "\n-- Lesson 4: broken SELECT --\n";
+    std::cout << "\nbroken SELECT --\n";
     expectError("missing columns",          "SELECT FROM users");
     expectError("missing FROM",             "SELECT * users");
     expectError("missing table name",       "SELECT * FROM");
@@ -207,7 +195,7 @@ int main() {
     expectError("star and a column",        "SELECT *, name FROM users");
     expectError("extra word at end",        "SELECT * FROM users users");
 
-    std::cout << "\n-- Lesson 5: valid WHERE --\n";
+    std::cout << "\nvalid WHERE --\n";
     expectWhere("no WHERE means nullptr",  "SELECT * FROM users",                       "users", "");
     expectWhere("greater than",            "SELECT * FROM users WHERE age > 18",        "users", "(age > 18)");
     expectWhere("equal",                   "SELECT * FROM users WHERE id = 1",          "users", "(id = 1)");
@@ -221,7 +209,7 @@ int main() {
     expectWhere("columns and WHERE",       "SELECT name, age FROM users WHERE id = 1",  "users", "(id = 1)");
     expectWhere("lowercase",               "select * from pets where name = 'rex'",     "pets",  "(name = 'rex')");
 
-    std::cout << "\n-- Lesson 5: broken WHERE --\n";
+    std::cout << "\nbroken WHERE --\n";
     expectError("WHERE with nothing after",   "SELECT * FROM users WHERE");
     expectError("missing operator",           "SELECT * FROM users WHERE age 18");
     expectError("missing value",              "SELECT * FROM users WHERE age >");
@@ -230,7 +218,7 @@ int main() {
     expectError("not an operator",            "SELECT * FROM users WHERE age ! 18");
     expectError("extra word after value",     "SELECT * FROM users WHERE age > 18 extra");
 
-    std::cout << "\n-- Lesson 6: valid AND --\n";
+    std::cout << "\nvalid AND --\n";
     expectWhere("one condition still works", "SELECT * FROM t WHERE a = 1",
                 "t", "(a = 1)");
     expectWhere("two conditions",            "SELECT * FROM t WHERE a = 1 AND b = 2",
@@ -243,7 +231,6 @@ int main() {
     expectWhere("lowercase and",             "select * from t where a = 1 and b = 2;",
                 "t", "((a = 1) AND (b = 2))");
 
-    // Check the tree's shape directly, not just its printed text.
     {
         const std::string name = "root is AND with two COMPARE children";
         try {
@@ -261,12 +248,91 @@ int main() {
         }
     }
 
-    std::cout << "\n-- Lesson 6: broken AND --\n";
+    std::cout << "\nbroken AND --\n";
     expectError("AND with nothing after",   "SELECT * FROM t WHERE a = 1 AND");
     expectError("AND at the start",         "SELECT * FROM t WHERE AND a = 1");
     expectError("AND twice in a row",       "SELECT * FROM t WHERE a = 1 AND AND b = 2");
     expectError("broken condition after AND","SELECT * FROM t WHERE a = 1 AND b 2");
-    expectError("OR not supported yet",     "SELECT * FROM t WHERE a = 1 OR b = 2");
+
+    std::cout << "\nvalid OR --\n";
+    expectWhere("two conditions with OR",   "SELECT * FROM t WHERE a = 1 OR b = 2",
+                "t", "((a = 1) OR (b = 2))");
+    expectWhere("three ORs group left to right", "SELECT * FROM t WHERE a = 1 OR b = 2 OR c = 3",
+                "t", "(((a = 1) OR (b = 2)) OR (c = 3))");
+    expectWhere("AND binds tighter (OR first)",  "SELECT * FROM t WHERE a = 1 OR b = 2 AND c = 3",
+                "t", "((a = 1) OR ((b = 2) AND (c = 3)))");
+    expectWhere("AND binds tighter (AND first)", "SELECT * FROM t WHERE a = 1 AND b = 2 OR c = 3",
+                "t", "(((a = 1) AND (b = 2)) OR (c = 3))");
+    expectWhere("two ANDs joined by OR",
+                "SELECT * FROM t WHERE a = 1 AND b = 2 OR c = 3 AND d = 4",
+                "t", "(((a = 1) AND (b = 2)) OR ((c = 3) AND (d = 4)))");
+    expectWhere("AND alone still works",     "SELECT * FROM t WHERE a = 1 AND b = 2",
+                "t", "((a = 1) AND (b = 2))");
+    expectWhere("lowercase or",              "select * from t where a = 1 or b = 'x';",
+                "t", "((a = 1) OR (b = 'x'))");
+
+    {
+        const std::string name = "root is OR, right child is AND";
+        try {
+            Statement s = parse(tokenize("SELECT * FROM t WHERE a = 1 OR b = 2 AND c = 3"));
+            if (!s.where)                                  fail(name, "where is nullptr");
+            else if (s.where->kind != ExprKind::OR)        fail(name, "root should be OR");
+            else if (!s.where->left || !s.where->right)    fail(name, "OR node needs a left and right child");
+            else if (s.where->left->kind != ExprKind::COMPARE) fail(name, "left child should be COMPARE (a = 1)");
+            else if (s.where->right->kind != ExprKind::AND)    fail(name, "right child should be AND (b = 2 AND c = 3)");
+            else                                           pass(name);
+        } catch (const ParseError& e) {
+            fail(name, std::string("should have worked, but got error: ") + e.what());
+        }
+    }
+
+    std::cout << "\nbroken OR --\n";
+    expectError("OR with nothing after",        "SELECT * FROM t WHERE a = 1 OR");
+    expectError("OR at the start",              "SELECT * FROM t WHERE OR a = 1");
+    expectError("OR twice in a row",            "SELECT * FROM t WHERE a = 1 OR OR b = 2");
+    expectError("AND then OR with nothing between", "SELECT * FROM t WHERE a = 1 AND OR b = 2");
+
+    std::cout << "\nvalid parentheses --\n";
+    expectWhere("one condition in ()",       "SELECT * FROM t WHERE (a = 1)",
+                "t", "(a = 1)");
+    expectWhere("double () changes nothing", "SELECT * FROM t WHERE ((a = 1))",
+                "t", "(a = 1)");
+    expectWhere("() makes OR go first",      "SELECT * FROM t WHERE (a = 1 OR b = 2) AND c = 3",
+                "t", "(((a = 1) OR (b = 2)) AND (c = 3))");
+    expectWhere("() on the right side",      "SELECT * FROM t WHERE a = 1 AND (b = 2 OR c = 3)",
+                "t", "((a = 1) AND ((b = 2) OR (c = 3)))");
+    expectWhere("() around an AND",          "SELECT * FROM t WHERE (a = 1 AND b = 2) OR c = 3",
+                "t", "(((a = 1) AND (b = 2)) OR (c = 3))");
+    expectWhere("() inside ()",              "SELECT * FROM t WHERE ((a = 1 OR b = 2) AND c = 3) OR d = 4",
+                "t", "((((a = 1) OR (b = 2)) AND (c = 3)) OR (d = 4))");
+    expectWhere("no () still works the same","SELECT * FROM t WHERE a = 1 OR b = 2 AND c = 3",
+                "t", "((a = 1) OR ((b = 2) AND (c = 3)))");
+    expectWhere("() with semicolon",         "select * from t where (a = 1 or b = 2);",
+                "t", "((a = 1) OR (b = 2))");
+
+    {
+        const std::string name = "root is AND, left child is the OR from ()";
+        try {
+            Statement s = parse(tokenize("SELECT * FROM t WHERE (a = 1 OR b = 2) AND c = 3"));
+            if (!s.where)                                  fail(name, "where is nullptr");
+            else if (s.where->kind != ExprKind::AND)       fail(name, "root should be AND");
+            else if (!s.where->left || !s.where->right)    fail(name, "AND node needs a left and right child");
+            else if (s.where->left->kind != ExprKind::OR)  fail(name, "left child should be OR (from the parentheses)");
+            else if (s.where->right->kind != ExprKind::COMPARE) fail(name, "right child should be COMPARE (c = 3)");
+            else                                           pass(name);
+        } catch (const ParseError& e) {
+            fail(name, std::string("should have worked, but got error: ") + e.what());
+        }
+    }
+
+    std::cout << "\nbroken parentheses --\n";
+    expectError("( never closed",            "SELECT * FROM t WHERE (a = 1");
+    expectError(") with no (",               "SELECT * FROM t WHERE a = 1)");
+    expectError("empty ()",                  "SELECT * FROM t WHERE ()");
+    expectError("one ( too few",             "SELECT * FROM t WHERE ((a = 1)");
+    expectError("one ) too many",            "SELECT * FROM t WHERE (a = 1))");
+    expectError("backwards parentheses",     "SELECT * FROM t WHERE )a = 1(");
+    expectError("AND right before )",        "SELECT * FROM t WHERE (a = 1 AND) OR b = 2");
 
     std::cout << "\n" << passed << " passed, " << failed << " failed\n";
     return failed == 0 ? 0 : 1;

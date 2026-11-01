@@ -11,7 +11,7 @@ public:
             return parseInsert();
         } else if (peek().type == TokenType::SELECT) {
             return parseSelect();
-        }
+        } 
          else {
             throw ParseError("Unknown command");
         }
@@ -123,7 +123,7 @@ private:
         s.table = expect(TokenType::IDENTIFIER, "table name").text;
         
         if (match(TokenType::WHERE)) {
-            s.where = parseWhere();
+            s.where = parseOr();
         }
 
         match(TokenType::SEMICOLON);
@@ -132,14 +132,33 @@ private:
         return s;
     }
 
+    std::unique_ptr<Expr> parseOr() {
+        std::unique_ptr<Expr> left = parseWhere();
+        while (match(TokenType::OR)) {
+            std::unique_ptr<Expr> right = parseWhere();
+            left = makeNode(ExprKind::OR, std::move(left), std::move(right));
+        }
+
+        return left;
+    }
+
     std::unique_ptr<Expr> parseWhere() {
-        std::unique_ptr<Expr> left = parseCondition();
+        std::unique_ptr<Expr> left = parsePrimary();
         while (match(TokenType::AND)) {
-            std::unique_ptr<Expr> right = parseCondition();
+            std::unique_ptr<Expr> right = parsePrimary();
             left = makeNode(ExprKind::AND, std::move(left), std::move(right));
         }
 
         return left;
+    }
+
+    std::unique_ptr<Expr> parsePrimary() {
+        if (match(TokenType::LPAREN)) {
+            std::unique_ptr<Expr> inside = parseOr();
+            expect(TokenType::RPAREN, ")");
+            return inside;
+        }
+        return parseCondition();
     }
 
     std::unique_ptr<Expr> makeNode(ExprKind kind, std::unique_ptr<Expr> left,
