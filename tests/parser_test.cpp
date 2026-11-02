@@ -129,6 +129,50 @@ static void expectWhere(const std::string& name, const std::string& sql,
     }
 }
 
+static std::string assignmentsToString(const Statement& s) {
+    std::string out;
+    for (size_t i = 0; i < s.assignments.size(); i++) {
+        if (i > 0) out += ", ";
+        const Value& v = s.assignments[i].value;
+        out += s.assignments[i].column + " = " + (v.type == ValueType::TEXT ? "'" + v.text + "'" : v.text);
+    }
+    return out;
+}
+
+static void expectUpdate(const std::string& name, const std::string& sql, const std::string& table,
+                         const std::string& sets, const std::string& where) {
+    try {
+        Statement s = parse(tokenize(sql));
+        if (s.type != StatementType::UPDATE)
+            return fail(name, "type should be UPDATE");
+        if (s.table != table)
+            return fail(name, "table should be '" + table + "' but was '" + s.table + "'");
+        if (assignmentsToString(s) != sets)
+            return fail(name, "SET should be [" + sets + "] but was [" + assignmentsToString(s) + "]");
+        if (whereToString(s.where.get()) != where)
+            return fail(name, "WHERE should be [" + where + "] but was [" + whereToString(s.where.get()) + "]");
+        pass(name);
+    } catch (const ParseError& e) {
+        fail(name, std::string("should have worked, but got error: ") + e.what());
+    }
+}
+
+static void expectDelete(const std::string& name, const std::string& sql,
+                         const std::string& table, const std::string& where) {
+    try {
+        Statement s = parse(tokenize(sql));
+        if (s.type != StatementType::DELETE)
+            return fail(name, "type should be DELETE");
+        if (s.table != table)
+            return fail(name, "table should be '" + table + "' but was '" + s.table + "'");
+        if (whereToString(s.where.get()) != where)
+            return fail(name, "WHERE should be [" + where + "] but was [" + whereToString(s.where.get()) + "]");
+        pass(name);
+    } catch (const ParseError& e) {
+        fail(name, std::string("should have worked, but got error: ") + e.what());
+    }
+}
+
 static void expectError(const std::string& name, const std::string& sql) {
     try {
         parse(tokenize(sql));
@@ -156,7 +200,7 @@ int main() {
     expectError("trailing comma",           "CREATE TABLE users (id INT,)");
     expectError("missing comma",            "CREATE TABLE users (id INT name TEXT)");
     expectError("extra word after ;",       "CREATE TABLE users (id INT); extra");
-    expectError("unknown command",          "DROP TABLE users");
+    expectError("unknown command", "ALTER TABLE users");
 
     std::cout << "\nvalid INSERT --\n";
     expectInsert("one number",        "INSERT INTO t VALUES (7)",                    "t",     "INT 7");
@@ -333,6 +377,46 @@ int main() {
     expectError("one ) too many",            "SELECT * FROM t WHERE (a = 1))");
     expectError("backwards parentheses",     "SELECT * FROM t WHERE )a = 1(");
     expectError("AND right before )",        "SELECT * FROM t WHERE (a = 1 AND) OR b = 2");
+
+    std::cout << "\nvalid UPDATE --\n";
+    expectUpdate("one SET, no WHERE",     "UPDATE users SET age = 21",
+                 "users", "age = 21", "");
+    expectUpdate("SET and WHERE",         "UPDATE users SET age = 21 WHERE id = 1;",
+                 "users", "age = 21", "(id = 1)");
+    expectUpdate("two SETs",              "UPDATE users SET age = 21, name = 'rob' WHERE id = 1",
+                 "users", "age = 21, name = 'rob'", "(id = 1)");
+    expectUpdate("full WHERE tree works", "UPDATE t SET a = 1 WHERE (b = 2 OR c = 3) AND d = 4",
+                 "t", "a = 1", "(((b = 2) OR (c = 3)) AND (d = 4))");
+    expectUpdate("lowercase",             "update pets set name = 'rex' where id = 3",
+                 "pets", "name = 'rex'", "(id = 3)");
+
+    std::cout << "\nbroken UPDATE --\n";
+    expectError("missing table name",       "UPDATE SET age = 21");
+    expectError("missing SET",              "UPDATE users age = 21");
+    expectError("nothing after SET",        "UPDATE users SET");
+    expectError("missing =",                "UPDATE users SET age 21");
+    expectError("wrong operator in SET",    "UPDATE users SET age > 21");
+    expectError("missing value",            "UPDATE users SET age =");
+    expectError("column instead of value",  "UPDATE users SET age = id");
+    expectError("trailing comma",           "UPDATE users SET age = 21,");
+    expectError("WHERE with nothing after", "UPDATE users SET age = 21 WHERE");
+
+    std::cout << "\nvalid DELETE --\n";
+    expectDelete("no WHERE (every row)",  "DELETE FROM users",
+                 "users", "");
+    expectDelete("with WHERE",            "DELETE FROM users WHERE id = 1;",
+                 "users", "(id = 1)");
+    expectDelete("WHERE with AND/OR",     "DELETE FROM users WHERE age < 18 OR name = 'x' AND id > 5",
+                 "users", "((age < 18) OR ((name = 'x') AND (id > 5)))");
+    expectDelete("lowercase",             "delete from pets where name = 'rex'",
+                 "pets", "(name = 'rex')");
+
+    std::cout << "\nbroken DELETE --\n";
+    expectError("missing FROM",             "DELETE users");
+    expectError("missing table name",       "DELETE FROM");
+    expectError("star is not allowed",      "DELETE * FROM users");
+    expectError("WHERE with nothing after", "DELETE FROM users WHERE");
+    expectError("extra word at end",        "DELETE FROM users users");
 
     std::cout << "\n" << passed << " passed, " << failed << " failed\n";
     return failed == 0 ? 0 : 1;

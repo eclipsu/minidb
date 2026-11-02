@@ -5,15 +5,16 @@ public:
     Parser(const std::vector<Token>& tokens) : tokens(tokens) {}
 
     Statement parseStatement() {
-        if (peek().type == TokenType::CREATE) {
-            return parseCreate();
-        } else if (peek().type == TokenType::INSERT) {
-            return parseInsert();
-        } else if (peek().type == TokenType::SELECT) {
-            return parseSelect();
-        } 
-         else {
-            throw ParseError("Unknown command");
+        switch (peek().type) {
+            case TokenType::CREATE: return parseCreate();
+            case TokenType::INSERT: return parseInsert();
+            case TokenType::SELECT: return parseSelect();
+            case TokenType::DELETE: return parseDelete();
+            case TokenType::UPDATE: return parseUpdate();
+            case TokenType::DROP: return parseDrop();
+            case TokenType::TRUNCATE: return parseTruncate();
+            default:
+                throw ParseError("Unknown command");
         }
     }
 
@@ -132,6 +133,88 @@ private:
         return s;
     }
 
+    Statement parseDrop() {
+        Statement s;
+        s.type = StatementType::DROP;
+
+        expect(TokenType::DROP, "DROP");
+        expect(TokenType::TABLE, "TABLE");
+        s.table = expect(TokenType::IDENTIFIER, "table name").text;
+
+        match(TokenType::SEMICOLON);
+        expect(TokenType::END, "end of command");
+        return s;
+    }
+
+    Statement parseTruncate() {
+        Statement s;
+        s.type = StatementType::TRUNCATE;
+
+        expect(TokenType::TRUNCATE, "DROP");
+        expect(TokenType::TABLE, "TABLE");
+        s.table = expect(TokenType::IDENTIFIER, "table name").text;
+
+        match(TokenType::SEMICOLON);
+        expect(TokenType::END, "end of command");
+        return s;
+    }
+
+
+    Statement parseDelete() {
+        Statement s;
+        s.type = StatementType::DELETE;
+
+        expect(TokenType::DELETE, "DELETE");
+        expect(TokenType::FROM, "FROM");
+        s.table = expect(TokenType::IDENTIFIER, "table name").text;
+        
+        if (match(TokenType::WHERE)) {
+            do {
+                s.where = parseOr();
+            } while (match(TokenType::COMMA));
+        }
+
+        if (match(TokenType::ORDER)) {
+            expect(TokenType::BY, "BY");
+            do {
+                OrderItem item;
+                item.column = expect(TokenType::IDENTIFIER, "column name").text;
+                if (match(TokenType::DESC)) item.desc = true;
+                else match(TokenType::ASC);
+                s.orderBy.push_back(item);
+            } while (match(TokenType::COMMA));
+        }
+
+        match(TokenType::SEMICOLON);
+        expect(TokenType::END, "end");
+        return s;
+    }
+
+    Statement parseUpdate() {
+        Statement s;
+        s.type = StatementType::UPDATE;
+
+        expect(TokenType::UPDATE, "UPDATE");
+        s.table = expect(TokenType::IDENTIFIER, "table name").text;
+        expect(TokenType::SET, "SET");
+        do {
+            std::string column = expect(TokenType::IDENTIFIER, "column name").text;
+            expect(TokenType::EQUAL, "=");
+            Value value = parseValue();
+            s.assignments.push_back(Assignment{column, value});
+        } while(match(TokenType::COMMA));
+
+        if (match(TokenType::WHERE)) {
+            do {
+                s.where = parseOr();
+            } while (match(TokenType::COMMA));
+        }
+
+        match(TokenType::SEMICOLON);
+        expect(TokenType::END, "end");
+        return s;
+    }
+ 
     std::unique_ptr<Expr> parseOr() {
         std::unique_ptr<Expr> left = parseWhere();
         while (match(TokenType::OR)) {

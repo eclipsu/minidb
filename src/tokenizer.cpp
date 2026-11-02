@@ -10,7 +10,10 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
     {"UPDATE", TokenType::UPDATE}, {"SET", TokenType::SET},
     {"DELETE", TokenType::DELETE}, {"AND", TokenType::AND},
     {"OR", TokenType::OR},         {"INT", TokenType::INT},
-    {"TEXT", TokenType::TEXT},
+    {"TEXT", TokenType::TEXT},     {"DROP", TokenType::DROP},
+    {"TRUNCATE", TokenType::TRUNCATE}, {"ORDER", TokenType::ORDER},
+    {"BY", TokenType::BY},         {"ASC", TokenType::ASC},
+    {"DESC", TokenType::DESC},
 };
 
 static bool isDigit(char c)     { return std::isdigit(static_cast<unsigned char>(c)); }
@@ -122,6 +125,12 @@ std::string tokenTypeName(TokenType type) {
         case TokenType::OR:            return "OR";
         case TokenType::INT:           return "INT";
         case TokenType::TEXT:          return "TEXT";
+        case TokenType::DROP:          return "DROP";
+        case TokenType::TRUNCATE:      return "TRUNCATE";
+        case TokenType::ORDER:         return "ORDER";
+        case TokenType::BY:            return "BY";
+        case TokenType::ASC:           return "ASC";
+        case TokenType::DESC:          return "DESC";
         case TokenType::IDENTIFIER:    return "IDENTIFIER";
         case TokenType::NUMBER:        return "NUMBER";
         case TokenType::STRING:        return "STRING";

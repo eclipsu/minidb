@@ -4,7 +4,7 @@
 #include <vector>
 #include <memory>
 
-enum class StatementType { CREATE, INSERT, SELECT, UPDATE, DELETE };
+enum class StatementType { CREATE, INSERT, SELECT, UPDATE, DELETE, ORDER, DROP, TRUNCATE };
 enum class ValueType { INT, TEXT };
 enum ExprKind { COMPARE, AND, OR };
 
@@ -23,6 +23,11 @@ struct Assignment {
     Value value;
 };
 
+struct OrderItem {
+    std::string column;
+    bool desc = false;
+};
+
 struct Expr {
     ExprKind kind = ExprKind::COMPARE;
     std::string column;
@@ -39,6 +44,7 @@ struct Statement {
     std::vector<Value> values;
     std::vector<std::string> selectColumns;
     std::unique_ptr<Expr> where;
-    std::vector<Assignment> assignment;
+    std::vector<Assignment> assignments;
+    std::vector<OrderItem> orderBy;
 };
 
