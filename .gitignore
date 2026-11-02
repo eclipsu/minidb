@@ -2,6 +2,9 @@
 /minidb
 /tokenizer_test
 /parser_test
+/btree_insert_test
+/btree_remove_test
+/btree_full_test
 *.o
 *.d
 *.dSYM/
