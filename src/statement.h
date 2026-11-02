@@ -4,7 +4,7 @@
 #include <vector>
 #include <memory>
 
-enum class StatementType { CREATE, INSERT, SELECT, UPDATE, DELETE, ORDER, DROP, TRUNCATE };
+enum class StatementType { CREATE, INSERT, SELECT, UPDATE, DELETE, DROP, TRUNCATE };
 enum class ValueType { INT, TEXT };
 enum ExprKind { COMPARE, AND, OR };
 

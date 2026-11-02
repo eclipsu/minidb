@@ -127,9 +127,20 @@ private:
             s.where = parseOr();
         }
 
+        if (match(TokenType::ORDER)) {
+            expect(TokenType::BY, "BY");
+            do {
+                OrderItem item;
+                item.column = expect(TokenType::IDENTIFIER, "column name").text;
+                if (match(TokenType::DESC)) item.desc = true;
+                else match(TokenType::ASC);
+                s.orderBy.push_back(item);
+            } while (match(TokenType::COMMA));
+        }
+
         match(TokenType::SEMICOLON);
         expect(TokenType::END, "end");
- 
+
         return s;
     }
 
@@ -150,7 +161,7 @@ private:
         Statement s;
         s.type = StatementType::TRUNCATE;
 
-        expect(TokenType::TRUNCATE, "DROP");
+        expect(TokenType::TRUNCATE, "TRUNCATE");
         expect(TokenType::TABLE, "TABLE");
         s.table = expect(TokenType::IDENTIFIER, "table name").text;
 
@@ -169,20 +180,7 @@ private:
         s.table = expect(TokenType::IDENTIFIER, "table name").text;
         
         if (match(TokenType::WHERE)) {
-            do {
-                s.where = parseOr();
-            } while (match(TokenType::COMMA));
-        }
-
-        if (match(TokenType::ORDER)) {
-            expect(TokenType::BY, "BY");
-            do {
-                OrderItem item;
-                item.column = expect(TokenType::IDENTIFIER, "column name").text;
-                if (match(TokenType::DESC)) item.desc = true;
-                else match(TokenType::ASC);
-                s.orderBy.push_back(item);
-            } while (match(TokenType::COMMA));
+            s.where = parseOr();
         }
 
         match(TokenType::SEMICOLON);
@@ -205,9 +203,7 @@ private:
         } while(match(TokenType::COMMA));
 
         if (match(TokenType::WHERE)) {
-            do {
-                s.where = parseOr();
-            } while (match(TokenType::COMMA));
+            s.where = parseOr();
         }
 
         match(TokenType::SEMICOLON);

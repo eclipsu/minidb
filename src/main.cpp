@@ -139,6 +139,29 @@ static void printStatement(const Statement& stmt) {
             if (stmt.selectColumns.empty()) std::cout << " *";
             for (const std::string& c : stmt.selectColumns) std::cout << " " << c;
             if (stmt.where) std::cout << ", WHERE " << whereToString(stmt.where.get());
+            if (!stmt.orderBy.empty()) std::cout << ", ORDER BY";
+            for (const OrderItem& o : stmt.orderBy)
+                std::cout << " " << o.column << (o.desc ? "(DESC)" : "(ASC)");
+            break;
+
+        case StatementType::UPDATE:
+            std::cout << "Parsed UPDATE " << stmt.table << ", set:";
+            for (const Assignment& a : stmt.assignments)
+                std::cout << " " << a.column << " = " << valueToString(a.value);
+            if (stmt.where) std::cout << ", WHERE " << whereToString(stmt.where.get());
+            break;
+
+        case StatementType::DELETE:
+            std::cout << "Parsed DELETE from " << stmt.table;
+            if (stmt.where) std::cout << ", WHERE " << whereToString(stmt.where.get());
+            break;
+
+        case StatementType::DROP:
+            std::cout << "Parsed DROP TABLE " << stmt.table;
+            break;
+
+        case StatementType::TRUNCATE:
+            std::cout << "Parsed TRUNCATE TABLE " << stmt.table;
             break;
 
     }

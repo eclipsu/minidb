@@ -173,6 +173,60 @@ static void expectDelete(const std::string& name, const std::string& sql,
     }
 }
 
+static void expectDrop(const std::string& name, const std::string& sql, const std::string& table) {
+    try {
+        Statement s = parse(tokenize(sql));
+        if (s.type != StatementType::DROP)
+            return fail(name, "type should be DROP");
+        if (s.table != table)
+            return fail(name, "table should be '" + table + "' but was '" + s.table + "'");
+        pass(name);
+    } catch (const ParseError& e) {
+        fail(name, std::string("should have worked, but got error: ") + e.what());
+    }
+}
+
+static void expectTruncate(const std::string& name, const std::string& sql, const std::string& table) {
+    try {
+        Statement s = parse(tokenize(sql));
+        if (s.type != StatementType::TRUNCATE)
+            return fail(name, "type should be TRUNCATE");
+        if (s.table != table)
+            return fail(name, "table should be '" + table + "' but was '" + s.table + "'");
+        pass(name);
+    } catch (const ParseError& e) {
+        fail(name, std::string("should have worked, but got error: ") + e.what());
+    }
+}
+
+static std::string orderToString(const Statement& s) {
+    std::string out;
+    for (size_t i = 0; i < s.orderBy.size(); i++) {
+        if (i > 0) out += ", ";
+        out += s.orderBy[i].column;
+        out += s.orderBy[i].desc ? " DESC" : " ASC";
+    }
+    return out;
+}
+
+static void expectOrder(const std::string& name, const std::string& sql,
+                        const std::string& table, const std::string& where, const std::string& order) {
+    try {
+        Statement s = parse(tokenize(sql));
+        if (s.type != StatementType::SELECT)
+            return fail(name, "type should be SELECT");
+        if (s.table != table)
+            return fail(name, "table should be '" + table + "' but was '" + s.table + "'");
+        if (whereToString(s.where.get()) != where)
+            return fail(name, "WHERE should be [" + where + "] but was [" + whereToString(s.where.get()) + "]");
+        if (orderToString(s) != order)
+            return fail(name, "ORDER BY should be [" + order + "] but was [" + orderToString(s) + "]");
+        pass(name);
+    } catch (const ParseError& e) {
+        fail(name, std::string("should have worked, but got error: ") + e.what());
+    }
+}
+
 static void expectError(const std::string& name, const std::string& sql) {
     try {
         parse(tokenize(sql));
@@ -200,7 +254,7 @@ int main() {
     expectError("trailing comma",           "CREATE TABLE users (id INT,)");
     expectError("missing comma",            "CREATE TABLE users (id INT name TEXT)");
     expectError("extra word after ;",       "CREATE TABLE users (id INT); extra");
-    expectError("unknown command", "ALTER TABLE users");
+    expectError("unknown command",          "ALTER TABLE users");
 
     std::cout << "\nvalid INSERT --\n";
     expectInsert("one number",        "INSERT INTO t VALUES (7)",                    "t",     "INT 7");
@@ -417,6 +471,51 @@ int main() {
     expectError("star is not allowed",      "DELETE * FROM users");
     expectError("WHERE with nothing after", "DELETE FROM users WHERE");
     expectError("extra word at end",        "DELETE FROM users users");
+    expectError("comma in WHERE",           "DELETE FROM users WHERE id = 1, age > 0");
+    expectError("ORDER BY not allowed",     "DELETE FROM users ORDER BY id");
+    expectError("comma in UPDATE WHERE",    "UPDATE users SET age = 21 WHERE id = 1, age > 0");
+
+    std::cout << "\nvalid DROP --\n";
+    expectDrop("plain",     "DROP TABLE users",  "users");
+    expectDrop("semicolon", "DROP TABLE users;", "users");
+    expectDrop("lowercase", "drop table pets",   "pets");
+
+    std::cout << "\nbroken DROP --\n";
+    expectError("missing TABLE",      "DROP users");
+    expectError("missing table name", "DROP TABLE");
+    expectError("extra word at end",  "DROP TABLE users users");
+
+    std::cout << "\nvalid TRUNCATE --\n";
+    expectTruncate("plain",     "TRUNCATE TABLE users",  "users");
+    expectTruncate("semicolon", "TRUNCATE TABLE users;", "users");
+    expectTruncate("lowercase", "truncate table pets",   "pets");
+
+    std::cout << "\nbroken TRUNCATE --\n";
+    expectError("missing TABLE",      "TRUNCATE users");
+    expectError("missing table name", "TRUNCATE TABLE");
+    expectError("extra word at end",  "TRUNCATE TABLE users users");
+
+    std::cout << "\nvalid ORDER BY --\n";
+    expectOrder("defaults to ASC",  "SELECT * FROM users ORDER BY age",
+                "users", "", "age ASC");
+    expectOrder("ASC",              "SELECT * FROM users ORDER BY age ASC;",
+                "users", "", "age ASC");
+    expectOrder("DESC",             "SELECT * FROM users ORDER BY age DESC",
+                "users", "", "age DESC");
+    expectOrder("two columns",      "SELECT * FROM users ORDER BY age DESC, name",
+                "users", "", "age DESC, name ASC");
+    expectOrder("after WHERE",      "SELECT * FROM users WHERE id > 1 ORDER BY age",
+                "users", "(id > 1)", "age ASC");
+    expectOrder("lowercase",        "select * from pets order by name desc",
+                "pets", "", "name DESC");
+
+    std::cout << "\nbroken ORDER BY --\n";
+    expectError("missing BY",         "SELECT * FROM t ORDER age");
+    expectError("no column",          "SELECT * FROM t ORDER BY");
+    expectError("trailing comma",     "SELECT * FROM t ORDER BY age,");
+    expectError("number as column",   "SELECT * FROM t ORDER BY 1");
+    expectError("before WHERE",       "SELECT * FROM t ORDER BY age WHERE id = 1");
+    expectError("two directions",     "SELECT * FROM t ORDER BY age ASC DESC");
 
     std::cout << "\n" << passed << " passed, " << failed << " failed\n";
     return failed == 0 ? 0 : 1;
