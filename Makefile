@@ -1,42 +1,32 @@
 CXX      = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra
+CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -MMD -MP
 
-LIB_SRC  = $(filter-out src/main.cpp, $(wildcard src/*.cpp))
-HEADERS  = $(wildcard src/*.h)
+SRC      = $(wildcard src/*.cpp)
+LIB_OBJ  = $(patsubst src/%.cpp, build/%.o, $(filter-out src/main.cpp, $(SRC)))
+TESTS    = tokenizer_test parser_test
 
-TESTS    = tokenizer_test parser_test btree_insert_test btree_remove_test btree_full_test
-
-minidb: src/*.cpp $(HEADERS)
-	$(CXX) $(CXXFLAGS) -o minidb src/*.cpp
+minidb: build/main.o $(LIB_OBJ)
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
 test: $(TESTS)
-	./tokenizer_test
-	./parser_test
-	./btree_insert_test
-	./btree_remove_test
-	./btree_full_test
+	@for t in $(TESTS); do ./$$t || exit 1; done
 
-# Run just one group:
-test-parser: tokenizer_test parser_test
-	./tokenizer_test
-	./parser_test
+%_test: build/%_test.o $(LIB_OBJ)
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
-test-insert: btree_insert_test     # Hushay
-	./btree_insert_test
+build/%.o: src/%.cpp | build
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-test-remove: btree_remove_test     # Z
-	./btree_remove_test
+build/%.o: tests/%.cpp | build
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-test-full: btree_full_test         # needs both insert and remove done
-	./btree_full_test
-
-test-asan: clean
-	$(MAKE) test CXXFLAGS="$(CXXFLAGS) -g -fsanitize=address,undefined -fno-omit-frame-pointer"
-
-$(TESTS): %: tests/%.cpp $(LIB_SRC) $(HEADERS)
-	$(CXX) $(CXXFLAGS) -o $@ tests/$@.cpp $(LIB_SRC)
+build:
+	mkdir -p build
 
 clean:
-	rm -f minidb $(TESTS)
+	rm -rf build minidb $(TESTS)
 
-.PHONY: test test-parser test-insert test-remove test-full test-asan clean
+-include $(wildcard build/*.d)
+
+.PHONY: test clean
+.SECONDARY:
