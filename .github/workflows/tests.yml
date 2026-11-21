@@ -32,3 +32,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: make test-storage
+
+  executor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test-executor

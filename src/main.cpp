@@ -1,8 +1,10 @@
+#include "executor.h"
 #include "parser.h"
 #include "tokenizer.h"
 #include <csignal>
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <termios.h>
 #include <unistd.h>
@@ -96,76 +98,41 @@ static bool readLine(const char* prompt, std::string& buf) {
     return false;
 }
 
-// ---------- Printing what the parser understood ----------
+// ---------- Dot commands ----------
 
-static std::string valueToString(const Value& v) {
-    return v.type == ValueType::TEXT ? "'" + v.text + "'" : v.text;
+static std::string dataDir = "data";   // where .save / .load go, and what .exit saves to
+
+// ".save" -> "data",  ".save backup" -> "backup" (and remember it)
+static std::string dirArgument(const std::string& line) {
+    std::istringstream in(line);
+    std::string command, dir;
+    in >> command >> dir;
+    if (!dir.empty()) dataDir = dir;
+    return dataDir;
 }
 
-static std::string whereToString(const Expr* e) {
-    if (!e) return "";
-    if (e->kind == ExprKind::AND || e->kind == ExprKind::OR) {
-        std::string op = e->kind == ExprKind::AND ? " AND " : " OR ";
-        return "(" + whereToString(e->left.get()) + op + whereToString(e->right.get()) + ")";
-    }
-    std::string op;
-    switch (e->op) {
-        case TokenType::EQUAL:         op = "=";  break;
-        case TokenType::NOT_EQUAL:     op = "!="; break;
-        case TokenType::LESS:          op = "<";  break;
-        case TokenType::GREATER:       op = ">";  break;
-        case TokenType::LESS_EQUAL:    op = "<="; break;
-        case TokenType::GREATER_EQUAL: op = ">="; break;
-        default:                       op = "?";  break;
-    }
-    return "(" + e->column + " " + op + " " + valueToString(e->value) + ")";
+static void printTables(const Database& db) {
+    std::vector<std::string> names = db.tableNames();
+    if (names.empty()) std::cout << "(no tables)\n";
+    for (const std::string& name : names)
+        std::cout << name << " (" << db.getTable(name)->rows.size() << " rows)\n";
 }
 
-static void printStatement(const Statement& stmt) {
-    switch (stmt.type) {
-        case StatementType::CREATE:
-            std::cout << "Parsed CREATE TABLE " << stmt.table << " with columns:";
-            for (const Column& c : stmt.columns)
-                std::cout << " " << c.name << (c.type == ValueType::INT ? "(INT)" : "(TEXT)");
-            break;
-
-        case StatementType::INSERT:
-            std::cout << "Parsed INSERT INTO " << stmt.table << " with values:";
-            for (const Value& v : stmt.values) std::cout << " " << valueToString(v);
-            break;
-
-        case StatementType::SELECT:
-            std::cout << "Parsed SELECT from " << stmt.table << ", columns:";
-            if (stmt.selectColumns.empty()) std::cout << " *";
-            for (const std::string& c : stmt.selectColumns) std::cout << " " << c;
-            if (stmt.where) std::cout << ", WHERE " << whereToString(stmt.where.get());
-            if (!stmt.orderBy.empty()) std::cout << ", ORDER BY";
-            for (const OrderItem& o : stmt.orderBy)
-                std::cout << " " << o.column << (o.desc ? "(DESC)" : "(ASC)");
-            break;
-
-        case StatementType::UPDATE:
-            std::cout << "Parsed UPDATE " << stmt.table << ", set:";
-            for (const Assignment& a : stmt.assignments)
-                std::cout << " " << a.column << " = " << valueToString(a.value);
-            if (stmt.where) std::cout << ", WHERE " << whereToString(stmt.where.get());
-            break;
-
-        case StatementType::DELETE:
-            std::cout << "Parsed DELETE from " << stmt.table;
-            if (stmt.where) std::cout << ", WHERE " << whereToString(stmt.where.get());
-            break;
-
-        case StatementType::DROP:
-            std::cout << "Parsed DROP TABLE " << stmt.table;
-            break;
-
-        case StatementType::TRUNCATE:
-            std::cout << "Parsed TRUNCATE TABLE " << stmt.table;
-            break;
-
+// Asks what to do with unsaved changes. Returns true if it's OK to quit.
+static bool confirmExit(Database& db) {
+    if (!db.hasUnsavedChanges()) return true;
+    while (true) {
+        std::string answer;
+        std::string prompt = "You have unsaved changes. save (to " + dataDir + "/), discard or cancel? ";
+        if (!readLine(prompt.c_str(), answer)) return true;
+        if (answer == "save" || answer == "s") {
+            Result r = db.saveAll(dataDir);
+            std::cout << formatResult(r) << "\n";
+            return r.ok;
+        }
+        if (answer == "discard" || answer == "d") return true;
+        if (answer == "cancel" || answer == "c") return false;
     }
-    std::cout << "\n";
 }
 
 // ---------- REPL ----------
@@ -173,14 +140,45 @@ static void printStatement(const Statement& stmt) {
 int main() {
     enableRawMode();
 
+    Database db;
     std::string line;
-    while (readLine("db > ", line)) {
-        if (line == ".exit") break;
+    while (true) {
+        if (!readLine("db > ", line)) {        // Ctrl-D or end of piped input
+            if (db.hasUnsavedChanges()) std::cout << "(unsaved changes were not saved)\n";
+            break;
+        }
         if (line.empty()) continue;
+
+        if (line == ".exit") {
+            if (confirmExit(db)) break;
+            continue;
+        }
+        if (line == ".tables") {
+            printTables(db);
+            continue;
+        }
+        if (line == ".save" || line.rfind(".save ", 0) == 0) {
+            std::cout << formatResult(db.saveAll(dirArgument(line))) << "\n";
+            continue;
+        }
+        if (line == ".load" || line.rfind(".load ", 0) == 0) {
+            std::string dir = dirArgument(line);
+            if (db.hasUnsavedChanges()) {
+                std::string answer;
+                readLine("Loading throws away your unsaved changes. Continue? (y/n) ", answer);
+                if (answer != "y" && answer != "yes") continue;
+            }
+            std::cout << formatResult(db.loadAll(dir)) << "\n";
+            continue;
+        }
+        if (line[0] == '.') {
+            std::cout << "Unknown command " << line << " (try .tables, .save [dir], .load [dir], .exit)\n";
+            continue;
+        }
 
         try {
             Statement stmt = parse(tokenize(line));
-            printStatement(stmt);
+            std::cout << formatResult(db.execute(stmt)) << "\n";
         } catch (const ParseError& e) {
             std::cout << "Syntax error: " << e.what() << "\n";
         }
