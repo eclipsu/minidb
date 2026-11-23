@@ -549,7 +549,7 @@ int main() {
     {
         Database db;
         if (setup("UPDATE that matches nothing", db, USERS))
-            checkChange("UPDATE that matches nothing", db, "UPDATE users SET age = 1 WHERE id = 99", 0, "users", ALL_USERS);
+            checkChange("UPDATE that matches nothing", db, "UPDATE users SET age = 1 WHERE age > 100", 0, "users", ALL_USERS);
     }
     {
         std::string name = "UPDATE on 100 rows";
@@ -768,6 +768,9 @@ int main() {
 
             checkError("DELETE from a table that doesn't exist", db, "DELETE FROM nope");
             checkError("DELETE with WHERE on a column that doesn't exist", db, "DELETE FROM users WHERE nope = 1");
+            checkError("UPDATE a key that doesn't exist", db, "UPDATE users SET age = 1 WHERE id = 99");
+            checkError("UPDATE a missing key with more conditions", db, "UPDATE users SET age = 1 WHERE id = 99 AND age > 0");
+            checkError("DELETE a key that doesn't exist", db, "DELETE FROM users WHERE id = 99");
             checkError("DELETE comparing an INT column with text", db, "DELETE FROM users WHERE age < 'x'");
             checkError("DELETE comparing a TEXT column with a number", db, "DELETE FROM users WHERE name = 1");
             checkError("DELETE with a bad column on the right of OR", db, "DELETE FROM users WHERE id = 1 OR nope = 2");
@@ -1025,6 +1028,39 @@ int main() {
             if (actual != expected) fail(name, "expected:\n" + expected + "\n        got:\n" + actual);
             else pass(name);
         }
+    }
+
+    std::cout << "\n-- 13. missing keys --\n";
+    {
+        std::string name = "SELECT on a missing key says so";
+        Database db;
+        if (setup(name, db, USERS)) {
+            Result r = run(db, "SELECT name FROM users WHERE id = 99");
+            std::string expected =
+                "+------+\n"
+                "| name |\n"
+                "+------+\n"
+                "(no row with id = 99)";
+            if (!r.ok) fail(name, whyFailed(r));
+            else if (formatResult(r) != expected) fail(name, "expected:\n" + expected + "\n        got:\n" + formatResult(r));
+            else pass(name);
+        }
+    }
+    {
+        std::string name = "a TEXT key is shown in quotes";
+        Database db;
+        if (setup(name, db, {"CREATE TABLE kv (k TEXT, v TEXT)"})) {
+            Result r = run(db, "DELETE FROM kv WHERE k = 'zz'");
+            if (r.ok) fail(name, "DELETE of a missing key should fail");
+            else if (r.message != "no row with k = 'zz'") fail(name, "message was: " + r.message);
+            else pass(name);
+        }
+    }
+    {
+        std::string name = "key exists but the rest of the WHERE doesn't match: 0 rows, not an error";
+        Database db;
+        if (setup(name, db, USERS))
+            checkChange(name, db, "UPDATE users SET age = 1 WHERE id = 1 AND age > 100", 0, "users", ALL_USERS);
     }
 
     std::cout << "\n" << passed << " passed, " << failed << " failed\n";
