@@ -1,8 +1,16 @@
 # MiniDB
 
+**Author:** Rajeev Shrestha, Hushay Kotel Madzingira, Zander Dennison (group H001G07)
+
+**Course:** CSC 307 Data Structures and Algorithm Analysis
+
+**Semester:** Fall 2025
+
+---
+
 MiniDB is a small file-backed database written from scratch in C++17. It stores each table in a hand-written B-Tree, saves tables to CSV files, and lets you work with your data through a SQL prompt. It uses no external libraries and no database engine. Everything from the tokenizer to the B-Tree rebalancing is our own code.
 
-We built it as our semester project for CSC 307 Data Structures and Algorithm Analysis (Fall 2025, group H001G07). The proposal asked for a key-value store with an in-memory B-Tree index, CSV persistence and a command-line interface. We kept that core and put a small SQL layer on top, so the same B-Tree operations run behind `INSERT`, `SELECT`, `UPDATE` and `DELETE`.
+The proposal asked for a key-value store with an in-memory B-Tree index, CSV persistence and a command-line interface. We kept that core and put a small SQL layer on top, so the same B-Tree operations run behind `INSERT`, `SELECT`, `UPDATE` and `DELETE`.
 
 ```
 db > CREATE TABLE players (id INT, name TEXT, score INT);
@@ -23,20 +31,89 @@ db > .save
 Saved 1 table to data
 ```
 
-## Quick start
+---
 
-You need `g++` or `clang++` with C++17 support, and `make`.
+## 1. Prerequisites & Environment
+
+Before running this project, make sure your system meets the following requirements:
+
+* **Operating System:** Linux (developed on Ubuntu 25.10, CI runs on `ubuntu-latest`) or macOS. On Windows, use WSL (Ubuntu), because the prompt uses the POSIX `termios.h` and `unistd.h` headers for arrow-key history.
+* **Compiler:** `g++` 9+ or `clang++` 10+ with C++17 support (developed with GCC 15.2).
+* **Build System:** GNU Make (the repo ships a `Makefile`; no CMake or IDE project is needed).
+* **Optional:** Python 3.8+ to run the benchmark script in `bench/`.
+
+### Required Libraries
+
+MiniDB uses **no external libraries**. Everything is built on the C++17 standard library and the POSIX headers that come with the OS:
+
+* **C++17 standard library** (`<vector>`, `<string>`, `<memory>`, `<fstream>`, ...): containers, strings, file I/O.
+* **POSIX `termios.h` / `unistd.h`**: raw terminal mode for up/down-arrow command history at the `db >` prompt.
+
+---
+
+## 2. Installation & Setup
+
+1. Install a C++ compiler and Make.
+   * Ubuntu / Debian / WSL: `sudo apt update && sudo apt install build-essential git`
+   * macOS: `xcode-select --install`
+2. Environment variables: none are needed. `g++` (or `clang++`) and `make` only have to be on your `PATH`, which the packages above take care of. Check with `g++ --version` and `make --version`.
+3. Clone the repo:
 
 ```bash
 git clone https://github.com/eclipsu/minidb.git
 cd minidb
-make          # builds ./minidb
-./minidb
 ```
 
-Type SQL at the `db >` prompt, and end each statement with a semicolon. The up and down arrows go through your command history.
+---
 
-## Commands
+## 3. Build Instructions
+
+**Using Command Line:**
+
+```bash
+make            # builds ./minidb with g++ -std=c++17 -Wall -Wextra
+```
+
+To use Clang instead: `make CXX=clang++`. To start over: `make clean`.
+
+To build and run the tests:
+
+```bash
+make test         # every test
+make test-asan    # every test, built with AddressSanitizer and UBSan
+```
+
+**Using an IDE:**
+
+* There is no IDE project file. In VS Code or CLion, open the `minidb` folder and run `make` from the integrated terminal, or add a build task that runs `make`.
+* Any IDE works as long as it compiles every file in `src/` together with `-std=c++17`, for example: `g++ -std=c++17 -o minidb src/*.cpp`.
+
+---
+
+## 4. Execution Guide
+
+* **Executable Name:** `./minidb` (created in the project root by `make`).
+* **Entry Point:** `src/main.cpp`. The program takes **no command-line arguments**. Run `./minidb`, then type SQL at the `db >` prompt and end each statement with a semicolon. The up and down arrows go through your command history. Type `.exit` to quit.
+* **Scripts:** you can also pipe a file of statements in: `./minidb < script.sql`.
+* **Data files:** `.save` and `.load` default to a `data/` folder **relative to the current working directory**. Run `./minidb` from the same directory each time (normally the project root) so it finds the tables you saved earlier, or pass a folder explicitly: `.load path/to/dir`.
+
+See [Commands](#6-commands) below for the full list of SQL statements and dot commands.
+
+---
+
+## 5. Troubleshooting / Known Issues
+
+* **`termios.h: No such file or directory` on Windows:** MiniDB needs a POSIX system. Build and run it inside WSL, or on Linux/macOS.
+* **`make: g++: No such file or directory`:** install a compiler (step 1 of Installation), or build with `make CXX=clang++`.
+* **Errors about `std::` features or `-std=c++17`:** your compiler is too old. Upgrade to GCC 9+ or Clang 10+.
+* **`.load` says there are no tables / my data is gone:** you probably started `./minidb` from a different directory. Run it from the folder where you saved, or give `.load` the full path to the data folder.
+* **Changes disappeared after quitting:** MiniDB never saves on its own. Run `.save` before `.exit`, or answer "save" when `.exit` asks about unsaved changes.
+* **Arrow keys print `^[[A` instead of recalling history:** this happens when input is not a real terminal (for example some IDE run consoles). Run `./minidb` from a normal terminal.
+* **Known limitations:** no joins, no aggregates, no transactions and no concurrent access. The whole database lives in memory while the program runs. The key (first column) can't be changed with `UPDATE`; delete the row and insert it again. See [Limitations](#14-limitations).
+
+---
+
+## 6. Commands
 
 ### SQL
 
@@ -66,7 +143,7 @@ There are two column types, `INT` and `TEXT`. The first column of every table is
 
 Whatever folder you pass to `.save` or `.load` becomes the default for the rest of the session.
 
-## How the proposal maps to MiniDB
+## 7. How the proposal maps to MiniDB
 
 | Proposal command | In MiniDB                            | B-Tree operation                |
 | ---------------- | ------------------------------------ | ------------------------------- |
@@ -86,7 +163,7 @@ MiniDB also covers the error cases the proposal asked us to define:
 - **Memory** is freed when a table goes away. The `BTree` destructor frees every node, and each table is owned by a `std::unique_ptr`, so `DROP`, `TRUNCATE` and `.load` free the old tree. The ASan test build checks this.
 - **Saving is explicit.** MiniDB never saves on its own, and `.exit` asks before it throws changes away.
 
-## Architecture
+## 8. Architecture
 
 ```mermaid
 flowchart LR
@@ -124,7 +201,7 @@ flowchart TD
 
 When the `WHERE` clause pins down the key, for example `id = 42` or `id = 42 AND age > 18`, the executor uses `find` instead of scanning every row. At 10,000 rows this took a point lookup from about 1,380 µs to about 11 µs.
 
-## The B-Tree
+## 9. The B-Tree
 
 The B-Tree follows CLRS chapter 18, with minimum degree `t = 3`. That means:
 
@@ -149,7 +226,7 @@ flowchart TD
 
 Keys are compared with `compareKeys`, so `INT` keys sort as numbers (9 comes before 10) and `TEXT` keys sort alphabetically. The tests call `checkValid()` after every operation to check the tree's ordering, the key counts in each node and the leaf depths.
 
-## Storage format
+## 10. Storage format
 
 Each table is saved to its own file, `<dir>/<table>.csv`. The first line is the schema, and the rows follow in key order:
 
@@ -167,7 +244,7 @@ Saving and loading are both built so that a failure doesn't lose data:
 - **Loading** reads every file into new tables first. Your current tables are replaced only if every file loads, so one broken file can't leave you with half a database.
 - **Dropped tables** have their CSV file deleted on the next `.save`, so they don't come back the next time you `.load`.
 
-## Testing
+## 11. Testing
 
 ```bash
 make test             # every test
@@ -185,7 +262,7 @@ make test-asan        # every test, built with AddressSanitizer and UBSan
 
 All 498 tests pass. CI runs each group as its own job on every push and pull request, so an unfinished part only fails its own check.
 
-## Benchmark
+## 12. Benchmark
 
 `bench/benchmark.py` builds an optimized (`-O2`) copy of MiniDB and pipes generated SQL scripts through the real program, so every timing includes tokenizing, parsing, executing and the B-Tree itself. For each table size it inserts N rows in random order, then times point lookups, updates and deletes by key. It runs each script several times and keeps the fastest run.
 
@@ -205,7 +282,7 @@ Results on a Linux laptop, fastest of 3 runs, in microseconds per operation:
 
 The table grows 1,000 times larger from the first row to the last, but the cost of each operation only goes from about 6 to 17 µs. That is the O(log n) behavior you would expect from a B-Tree. A linear scan would have grown about 1,000 times as well. Loading 1,000,000 rows one INSERT at a time through the SQL prompt takes about 14 seconds. Most of each microsecond goes to tokenizing and parsing the statement, not to the tree. The 10,000-row lookup figure is higher than its neighbors because of measurement noise.
 
-## Project layout
+## 13. Project layout
 
 ```
 src/
@@ -225,17 +302,34 @@ docs/btree-guide.md   how the B-Tree work was split up
 docs/storage-guide.md how the storage work was split up
 ```
 
-## Limitations
+## 14. Limitations
 
 MiniDB is a teaching project, not a replacement for SQLite. It has no joins, no aggregates, no transactions and no concurrent access. The whole database lives in memory while the program runs, and it is written to disk only when you run `.save`.
 
-## Team
+## 15. Future Work
+
+Ideas for where MiniDB could go next, roughly from smallest to largest:
+
+- **More column types:** `FLOAT`, `BOOL` and `DATE`, plus `NULL` values and `NOT NULL` constraints.
+- **Aggregates and grouping:** `COUNT`, `SUM`, `AVG`, `MIN`, `MAX` and `GROUP BY`. `MIN` and `MAX` on the key could read the first or last leaf of the B-Tree directly.
+- **`LIMIT` and key range scans:** use the B-Tree's sorted order to answer `WHERE id BETWEEN a AND b` or `ORDER BY id LIMIT 10` without visiting every row.
+- **Secondary indexes:** `CREATE INDEX` on a non-key column would build a second B-Tree from that column's values to keys, so `WHERE name = 'bob'` no longer needs a full scan.
+- **Joins:** start with a nested-loop `JOIN ... ON`, then use an index lookup on the inner table when the join column is its key.
+- **Changing keys with `UPDATE`:** run it as a remove followed by an insert inside the executor, instead of making the user do both.
+- **Transactions:** `BEGIN`, `COMMIT` and `ROLLBACK`, backed by a write-ahead log so a crash after a commit doesn't lose data.
+- **Autosave:** an optional mode that saves after every change or on a timer, so `.save` isn't the only way to persist data.
+- **Disk-based pages:** store B-Tree nodes in fixed-size pages in one binary file with a page cache, so a table no longer has to fit in memory. This is how B-Trees are used in real databases, and the larger node size would make the tree much shallower.
+- **Tunable minimum degree:** make `t` a setting and benchmark how node size affects speed.
+- **Native Windows support:** replace the `termios` raw-mode code with a portable line editor so MiniDB builds without WSL.
+- **Client/server mode:** accept connections over a socket, which would also need locking for concurrent access.
+
+## 16. Team
 
 - [Rajeev Shrestha](https://github.com/eclipsu): tokenizer, parser, REPL, executor, benchmark
 - [Hushay Kotel Madzingira](https://github.com/hushaymadzingira): B-Tree insert, find, update, traversal
 - [Zander Dennison](https://github.com/ZanderSD): B-Tree remove, CSV storage
 
-## References
+## 17. References
 
 - Cormen, Leiserson, Rivest and Stein, _Introduction to Algorithms_, chapter 18 (B-Trees)
 - [Crafting Interpreters](https://craftinginterpreters.com/), the scanning and parsing chapters
