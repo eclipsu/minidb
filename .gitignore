@@ -5,6 +5,8 @@
 /btree_insert_test
 /btree_remove_test
 /btree_full_test
+/storage_test
+/storage_test_tmp/
 *.o
 *.d
 *.dSYM/

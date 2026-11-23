@@ -1,8 +1,34 @@
 name: tests
 on: [push, pull_request]
+
+# One job per part, so an unfinished part only turns its own check red.
 jobs:
-  test:
+  parser:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: make test
+      - run: make test-parser
+
+  btree-insert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test-insert
+
+  btree-remove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test-remove
+
+  btree-full:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test-full
+
+  storage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test-storage
