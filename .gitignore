@@ -21,3 +21,6 @@
 .DS_Store
 ./minidb
 ./parser_tests
+
+*.txt
+minidb_bench

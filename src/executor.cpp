@@ -117,6 +117,24 @@ Result Database::insertRow(const Statement& stmt) {
     return "";
 }
 
+// If the WHERE pins down the key column with "=", return that key value.
+//   id = 5                     -> 5
+//   id = 5 AND age > 18        -> 5   (look up row 5, then check the rest with matches())
+//   age > 18 / id > 5 / OR     -> nullptr (those really need to look at every row)
+// The caller must still run matches() on the row it finds, so the other
+// conditions in an AND are respected.
+static const Value* keyLookup(const Expr* where, const std::vector<Column>& columns) {
+    if (where == nullptr || columns.empty()) return nullptr;
+    if (where->kind == ExprKind::AND) {
+        const Value* key = keyLookup(where->left.get(), columns);
+        return key ? key : keyLookup(where->right.get(), columns);
+    }
+    if (where->kind == ExprKind::COMPARE && where->op == TokenType::EQUAL &&
+        where->column == columns[0].name && where->value.type == columns[0].type)
+        return &where->value;
+    return nullptr;   // OR, or a comparison that isn't "key = value"
+}
+
 // See executor.h.
 //   nullptr  -> true
 //   AND      -> matches(left) && matches(right)    (where->left.get())
@@ -203,9 +221,14 @@ Result Database::selectRows(const Statement& stmt) const {
     }
 
     std::vector<Row> kept;
-    for (const auto& entry : table->rows.traverseInOrder())
-        if (matches(stmt.where.get(), entry.second, columns))
-            kept.push_back(entry.second);
+    if (const Value* key = keyLookup(stmt.where.get(), columns)) {
+        const Row* row = table->rows.find(*key);
+        if (row != nullptr && matches(stmt.where.get(), *row, columns)) kept.push_back(*row);
+    } else {
+        for (const auto& entry : table->rows.traverseInOrder())
+            if (matches(stmt.where.get(), entry.second, columns))
+                kept.push_back(entry.second);
+    }
 
     if (!sortKeys.empty())
         std::stable_sort(kept.begin(), kept.end(), [&](const Row& a, const Row& b) {
@@ -270,11 +293,16 @@ Result Database::updateRows(const Statement& stmt) {
     if (!bad.empty()) return error(bad);
 
     std::vector<std::pair<Value, Row>> updates;
-    for (const auto& entry : table->rows.traverseInOrder()) {
-        if (!matches(stmt.where.get(), entry.second, columns)) continue;
-        Row newRow = entry.second;
+    auto collect = [&](const Value& key, const Row& row) {
+        if (!matches(stmt.where.get(), row, columns)) return;
+        Row newRow = row;
         for (const auto& [idx, value] : changes) newRow[idx] = *value;
-        updates.emplace_back(entry.first, std::move(newRow));
+        updates.emplace_back(key, std::move(newRow));
+    };
+    if (const Value* key = keyLookup(stmt.where.get(), columns)) {
+        if (const Row* row = table->rows.find(*key)) collect(*key, *row);
+    } else {
+        for (const auto& entry : table->rows.traverseInOrder()) collect(entry.first, entry.second);
     }
 
     for (const auto& [key, row] : updates) table->rows.update(key, row);
@@ -299,8 +327,13 @@ Result Database::deleteRows(const Statement& stmt) {
     if (!bad.empty()) return error(bad);
 
     std::vector<Value> keys;
-    for (const auto& entry : table->rows.traverseInOrder())
-        if (matches(stmt.where.get(), entry.second, table->columns)) keys.push_back(entry.first);
+    if (const Value* key = keyLookup(stmt.where.get(), table->columns)) {
+        const Row* row = table->rows.find(*key);
+        if (row != nullptr && matches(stmt.where.get(), *row, table->columns)) keys.push_back(*key);
+    } else {
+        for (const auto& entry : table->rows.traverseInOrder())
+            if (matches(stmt.where.get(), entry.second, table->columns)) keys.push_back(entry.first);
+    }
 
     for (const Value& key : keys) table->rows.remove(key);
 
