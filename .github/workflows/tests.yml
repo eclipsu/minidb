@@ -1,5 +1,6 @@
 name: tests
 on: [push, pull_request]
+<<<<<<< HEAD
 
 # One job per part, so an unfinished part only turns its own check red.
 jobs:
@@ -32,3 +33,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: make test-storage
+=======
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test
+>>>>>>> 496ceba8f20c1b93290a49b9f2979e33b742bd2a

@@ -5,8 +5,11 @@
 /btree_insert_test
 /btree_remove_test
 /btree_full_test
+<<<<<<< HEAD
 /storage_test
 /storage_test_tmp/
+=======
+>>>>>>> 496ceba8f20c1b93290a49b9f2979e33b742bd2a
 *.o
 *.d
 *.dSYM/
