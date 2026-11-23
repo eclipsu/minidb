@@ -7,6 +7,9 @@
 /btree_full_test
 /storage_test
 /storage_test_tmp/
+/executor_test
+/executor_test_tmp/
+/data/
 *.o
 *.d
 *.dSYM/
