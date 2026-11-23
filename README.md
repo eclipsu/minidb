@@ -300,6 +300,8 @@ tests/                one test file per part
 bench/benchmark.py    end-to-end benchmark
 docs/btree-guide.md   how the B-Tree work was split up
 docs/storage-guide.md how the storage work was split up
+docs/MiniDB_H001G07_requirements.pdf    project requirements and proposal
+docs/MiniDB_H001G07_program_design.pdf  architecture and design document
 ```
 
 ## 14. Limitations
