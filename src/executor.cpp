@@ -135,6 +135,13 @@ static const Value* keyLookup(const Expr* where, const std::vector<Column>& colu
     return nullptr;   // OR, or a comparison that isn't "key = value"
 }
 
+// For a WHERE that names a key the table doesn't have. The proposal asks
+// GET, UPDATE and DELETE to report a missing key instead of just "0 rows".
+static std::string noRowWith(const Column& keyColumn, const Value& key) {
+    std::string shown = key.type == ValueType::TEXT ? "'" + key.text + "'" : key.text;
+    return "no row with " + keyColumn.name + " = " + shown;
+}
+
 // See executor.h.
 //   nullptr  -> true
 //   AND      -> matches(left) && matches(right)    (where->left.get())
@@ -223,7 +230,14 @@ Result Database::selectRows(const Statement& stmt) const {
     std::vector<Row> kept;
     if (const Value* key = keyLookup(stmt.where.get(), columns)) {
         const Row* row = table->rows.find(*key);
-        if (row != nullptr && matches(stmt.where.get(), *row, columns)) kept.push_back(*row);
+        if (row == nullptr) {
+            Result r;
+            r.ok = true;
+            r.header = header;
+            r.message = noRowWith(columns[0], *key);
+            return r;
+        }
+        if (matches(stmt.where.get(), *row, columns)) kept.push_back(*row);
     } else {
         for (const auto& entry : table->rows.traverseInOrder())
             if (matches(stmt.where.get(), entry.second, columns))
@@ -300,7 +314,9 @@ Result Database::updateRows(const Statement& stmt) {
         updates.emplace_back(key, std::move(newRow));
     };
     if (const Value* key = keyLookup(stmt.where.get(), columns)) {
-        if (const Row* row = table->rows.find(*key)) collect(*key, *row);
+        const Row* row = table->rows.find(*key);
+        if (row == nullptr) return error(noRowWith(columns[0], *key));
+        collect(*key, *row);
     } else {
         for (const auto& entry : table->rows.traverseInOrder()) collect(entry.first, entry.second);
     }
@@ -329,7 +345,8 @@ Result Database::deleteRows(const Statement& stmt) {
     std::vector<Value> keys;
     if (const Value* key = keyLookup(stmt.where.get(), table->columns)) {
         const Row* row = table->rows.find(*key);
-        if (row != nullptr && matches(stmt.where.get(), *row, table->columns)) keys.push_back(*key);
+        if (row == nullptr) return error(noRowWith(table->columns[0], *key));
+        if (matches(stmt.where.get(), *row, table->columns)) keys.push_back(*key);
     } else {
         for (const auto& entry : table->rows.traverseInOrder())
             if (matches(stmt.where.get(), entry.second, table->columns)) keys.push_back(entry.first);
@@ -553,6 +570,6 @@ std::string formatResult(const Result& r) {
         cells(texts, rightAlign);
     }
     if (!r.rows.empty()) line();
-    out << "(" << r.rows.size() << (r.rows.size() == 1 ? " row)" : " rows)");
+    out << "(" << r.message << ")";
     return out.str();
 }

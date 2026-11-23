@@ -159,7 +159,7 @@ Whatever folder you pass to `.save` or `.load` becomes the default for the rest 
 MiniDB also covers the error cases the proposal asked us to define:
 
 - **Duplicate keys** are rejected, and the existing row is left alone.
-- **A missing key** in `UPDATE` or `DELETE` affects 0 rows. It is not an error.
+- **A missing key** is reported. `SELECT ... WHERE id = 99` prints `(no row with id = 99)`, and the same `UPDATE` or `DELETE` fails with `Error: no row with id = 99` and changes nothing. A key that exists but fails the rest of the `WHERE` still gives 0 rows.
 - **Memory** is freed when a table goes away. The `BTree` destructor frees every node, and each table is owned by a `std::unique_ptr`, so `DROP`, `TRUNCATE` and `.load` free the old tree. The ASan test build checks this.
 - **Saving is explicit.** MiniDB never saves on its own, and `.exit` asks before it throws changes away.
 
@@ -253,14 +253,14 @@ make test-asan        # every test, built with AddressSanitizer and UBSan
 
 | Target          | Covers                                                | Tests |
 | --------------- | ----------------------------------------------------- | ----: |
-| `test-parser`   | Tokenizer and parser                                  |   197 |
+| `test-parser`   | Tokenizer and parser                                  |   203 |
 | `test-insert`   | B-Tree insert, find, update, traversal                |    49 |
 | `test-remove`   | B-Tree remove, borrow, merge                          |    32 |
 | `test-full`     | Random inserts and removes checked against `std::map` |     5 |
 | `test-storage`  | CSV escaping, parsing, save and load                  |    71 |
-| `test-executor` | Every statement, validation, rollback, save and load  |   144 |
+| `test-executor` | Every statement, validation, rollback, save and load  |   151 |
 
-All 498 tests pass. CI runs each group as its own job on every push and pull request, so an unfinished part only fails its own check.
+All 511 tests pass. CI runs each group as its own job on every push and pull request, so an unfinished part only fails its own check.
 
 ## 12. Benchmark
 
@@ -300,6 +300,8 @@ tests/                one test file per part
 bench/benchmark.py    end-to-end benchmark
 docs/btree-guide.md   how the B-Tree work was split up
 docs/storage-guide.md how the storage work was split up
+docs/MiniDB_H001G07_requirements.pdf    project requirements and proposal
+docs/MiniDB_H001G07_program_design.pdf  architecture and design document
 ```
 
 ## 14. Limitations

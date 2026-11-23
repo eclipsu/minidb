@@ -24,3 +24,5 @@
 
 *.txt
 minidb_bench
+# Submission archive
+*.zip
