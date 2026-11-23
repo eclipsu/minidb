@@ -4,7 +4,7 @@
 
 **Course:** CSC 307 Data Structures and Algorithm Analysis
 
-**Semester:** Fall 2025
+**Semester:** Fall 2026
 
 ---
 
@@ -37,25 +37,25 @@ Saved 1 table to data
 
 Before running this project, make sure your system meets the following requirements:
 
-* **Operating System:** Linux (developed on Ubuntu 25.10, CI runs on `ubuntu-latest`) or macOS. On Windows, use WSL (Ubuntu), because the prompt uses the POSIX `termios.h` and `unistd.h` headers for arrow-key history.
-* **Compiler:** `g++` 9+ or `clang++` 10+ with C++17 support (developed with GCC 15.2).
-* **Build System:** GNU Make (the repo ships a `Makefile`; no CMake or IDE project is needed).
-* **Optional:** Python 3.8+ to run the benchmark script in `bench/`.
+- **Operating System:** Linux (developed on Ubuntu 25.10, CI runs on `ubuntu-latest`) or macOS. On Windows, use WSL (Ubuntu), because the prompt uses the POSIX `termios.h` and `unistd.h` headers for arrow-key history.
+- **Compiler:** `g++` 9+ or `clang++` 10+ with C++17 support (developed with GCC 15.2).
+- **Build System:** GNU Make (the repo ships a `Makefile`; no CMake or IDE project is needed).
+- **Optional:** Python 3.8+ to run the benchmark script in `bench/`.
 
 ### Required Libraries
 
 MiniDB uses **no external libraries**. Everything is built on the C++17 standard library and the POSIX headers that come with the OS:
 
-* **C++17 standard library** (`<vector>`, `<string>`, `<memory>`, `<fstream>`, ...): containers, strings, file I/O.
-* **POSIX `termios.h` / `unistd.h`**: raw terminal mode for up/down-arrow command history at the `db >` prompt.
+- **C++17 standard library** (`<vector>`, `<string>`, `<memory>`, `<fstream>`, ...): containers, strings, file I/O.
+- **POSIX `termios.h` / `unistd.h`**: raw terminal mode for up/down-arrow command history at the `db >` prompt.
 
 ---
 
 ## 2. Installation & Setup
 
 1. Install a C++ compiler and Make.
-   * Ubuntu / Debian / WSL: `sudo apt update && sudo apt install build-essential git`
-   * macOS: `xcode-select --install`
+   - Ubuntu / Debian / WSL: `sudo apt update && sudo apt install build-essential git`
+   - macOS: `xcode-select --install`
 2. Environment variables: none are needed. `g++` (or `clang++`) and `make` only have to be on your `PATH`, which the packages above take care of. Check with `g++ --version` and `make --version`.
 3. Clone the repo:
 
@@ -85,17 +85,17 @@ make test-asan    # every test, built with AddressSanitizer and UBSan
 
 **Using an IDE:**
 
-* There is no IDE project file. In VS Code or CLion, open the `minidb` folder and run `make` from the integrated terminal, or add a build task that runs `make`.
-* Any IDE works as long as it compiles every file in `src/` together with `-std=c++17`, for example: `g++ -std=c++17 -o minidb src/*.cpp`.
+- There is no IDE project file. In VS Code or CLion, open the `minidb` folder and run `make` from the integrated terminal, or add a build task that runs `make`.
+- Any IDE works as long as it compiles every file in `src/` together with `-std=c++17`, for example: `g++ -std=c++17 -o minidb src/*.cpp`.
 
 ---
 
 ## 4. Execution Guide
 
-* **Executable Name:** `./minidb` (created in the project root by `make`).
-* **Entry Point:** `src/main.cpp`. The program takes **no command-line arguments**. Run `./minidb`, then type SQL at the `db >` prompt and end each statement with a semicolon. The up and down arrows go through your command history. Type `.exit` to quit.
-* **Scripts:** you can also pipe a file of statements in: `./minidb < script.sql`.
-* **Data files:** `.save` and `.load` default to a `data/` folder **relative to the current working directory**. Run `./minidb` from the same directory each time (normally the project root) so it finds the tables you saved earlier, or pass a folder explicitly: `.load path/to/dir`.
+- **Executable Name:** `./minidb` (created in the project root by `make`).
+- **Entry Point:** `src/main.cpp`. The program takes **no command-line arguments**. Run `./minidb`, then type SQL at the `db >` prompt and end each statement with a semicolon. The up and down arrows go through your command history. Type `.exit` to quit.
+- **Scripts:** you can also pipe a file of statements in: `./minidb < script.sql`.
+- **Data files:** `.save` and `.load` default to a `data/` folder **relative to the current working directory**. Run `./minidb` from the same directory each time (normally the project root) so it finds the tables you saved earlier, or pass a folder explicitly: `.load path/to/dir`.
 
 See [Commands](#6-commands) below for the full list of SQL statements and dot commands.
 
@@ -103,13 +103,13 @@ See [Commands](#6-commands) below for the full list of SQL statements and dot co
 
 ## 5. Troubleshooting / Known Issues
 
-* **`termios.h: No such file or directory` on Windows:** MiniDB needs a POSIX system. Build and run it inside WSL, or on Linux/macOS.
-* **`make: g++: No such file or directory`:** install a compiler (step 1 of Installation), or build with `make CXX=clang++`.
-* **Errors about `std::` features or `-std=c++17`:** your compiler is too old. Upgrade to GCC 9+ or Clang 10+.
-* **`.load` says there are no tables / my data is gone:** you probably started `./minidb` from a different directory. Run it from the folder where you saved, or give `.load` the full path to the data folder.
-* **Changes disappeared after quitting:** MiniDB never saves on its own. Run `.save` before `.exit`, or answer "save" when `.exit` asks about unsaved changes.
-* **Arrow keys print `^[[A` instead of recalling history:** this happens when input is not a real terminal (for example some IDE run consoles). Run `./minidb` from a normal terminal.
-* **Known limitations:** no joins, no aggregates, no transactions and no concurrent access. The whole database lives in memory while the program runs. The key (first column) can't be changed with `UPDATE`; delete the row and insert it again. See [Limitations](#14-limitations).
+- **`termios.h: No such file or directory` on Windows:** MiniDB needs a POSIX system. Build and run it inside WSL, or on Linux/macOS.
+- **`make: g++: No such file or directory`:** install a compiler (step 1 of Installation), or build with `make CXX=clang++`.
+- **Errors about `std::` features or `-std=c++17`:** your compiler is too old. Upgrade to GCC 9+ or Clang 10+.
+- **`.load` says there are no tables / my data is gone:** you probably started `./minidb` from a different directory. Run it from the folder where you saved, or give `.load` the full path to the data folder.
+- **Changes disappeared after quitting:** MiniDB never saves on its own. Run `.save` before `.exit`, or answer "save" when `.exit` asks about unsaved changes.
+- **Arrow keys print `^[[A` instead of recalling history:** this happens when input is not a real terminal (for example some IDE run consoles). Run `./minidb` from a normal terminal.
+- **Known limitations:** no joins, no aggregates, no transactions and no concurrent access. The whole database lives in memory while the program runs. The key (first column) can't be changed with `UPDATE`; delete the row and insert it again. See [Limitations](#14-limitations).
 
 ---
 
@@ -306,30 +306,13 @@ docs/storage-guide.md how the storage work was split up
 
 MiniDB is a teaching project, not a replacement for SQLite. It has no joins, no aggregates, no transactions and no concurrent access. The whole database lives in memory while the program runs, and it is written to disk only when you run `.save`.
 
-## 15. Future Work
-
-Ideas for where MiniDB could go next, roughly from smallest to largest:
-
-- **More column types:** `FLOAT`, `BOOL` and `DATE`, plus `NULL` values and `NOT NULL` constraints.
-- **Aggregates and grouping:** `COUNT`, `SUM`, `AVG`, `MIN`, `MAX` and `GROUP BY`. `MIN` and `MAX` on the key could read the first or last leaf of the B-Tree directly.
-- **`LIMIT` and key range scans:** use the B-Tree's sorted order to answer `WHERE id BETWEEN a AND b` or `ORDER BY id LIMIT 10` without visiting every row.
-- **Secondary indexes:** `CREATE INDEX` on a non-key column would build a second B-Tree from that column's values to keys, so `WHERE name = 'bob'` no longer needs a full scan.
-- **Joins:** start with a nested-loop `JOIN ... ON`, then use an index lookup on the inner table when the join column is its key.
-- **Changing keys with `UPDATE`:** run it as a remove followed by an insert inside the executor, instead of making the user do both.
-- **Transactions:** `BEGIN`, `COMMIT` and `ROLLBACK`, backed by a write-ahead log so a crash after a commit doesn't lose data.
-- **Autosave:** an optional mode that saves after every change or on a timer, so `.save` isn't the only way to persist data.
-- **Disk-based pages:** store B-Tree nodes in fixed-size pages in one binary file with a page cache, so a table no longer has to fit in memory. This is how B-Trees are used in real databases, and the larger node size would make the tree much shallower.
-- **Tunable minimum degree:** make `t` a setting and benchmark how node size affects speed.
-- **Native Windows support:** replace the `termios` raw-mode code with a portable line editor so MiniDB builds without WSL.
-- **Client/server mode:** accept connections over a socket, which would also need locking for concurrent access.
-
-## 16. Team
+## 15. Team
 
 - [Rajeev Shrestha](https://github.com/eclipsu): tokenizer, parser, REPL, executor, benchmark
 - [Hushay Kotel Madzingira](https://github.com/hushaymadzingira): B-Tree insert, find, update, traversal
 - [Zander Dennison](https://github.com/ZanderSD): B-Tree remove, CSV storage
 
-## 17. References
+## 16. References
 
 - Cormen, Leiserson, Rivest and Stein, _Introduction to Algorithms_, chapter 18 (B-Trees)
 - [Crafting Interpreters](https://craftinginterpreters.com/), the scanning and parsing chapters
