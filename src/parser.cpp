@@ -270,7 +270,7 @@ private:
             expr->op = peek().type;
             pos++;
         } else {
-            throw ParseError("Invalid Operated, Expected =, !=, <, >, <= or >=");
+            throw ParseError("Expected =, !=, <, >, <= or >= after column name");
         }
         expr->value = parseValue();
  
