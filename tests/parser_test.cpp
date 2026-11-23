@@ -432,6 +432,29 @@ int main() {
     expectError("backwards parentheses",     "SELECT * FROM t WHERE )a = 1(");
     expectError("AND right before )",        "SELECT * FROM t WHERE (a = 1 AND) OR b = 2");
 
+    std::cout << "\nWHERE size limits --\n";
+    {
+        auto nested = [](int depth) {
+            return "SELECT * FROM t WHERE " + std::string(depth, '(') + "a = 1" + std::string(depth, ')');
+        };
+        auto chain = [](int count) {
+            std::string sql = "SELECT * FROM t WHERE a = 1";
+            for (int i = 1; i < count; i++) sql += " OR a = 1";
+            return sql;
+        };
+        expectWhere("1000 levels of () is fine", nested(1000), "t", "(a = 1)");
+        expectError("1001 levels of () is an error", nested(1001));
+        expectError("50000 levels of () doesn't crash", nested(50000));
+        try {
+            parse(tokenize(chain(1000)));
+            pass("1000 conditions is fine");
+        } catch (const ParseError& e) {
+            fail("1000 conditions is fine", std::string("got error: ") + e.what());
+        }
+        expectError("1001 conditions is an error", chain(1001));
+        expectError("100000 conditions doesn't crash", chain(100000));
+    }
+
     std::cout << "\nvalid UPDATE --\n";
     expectUpdate("one SET, no WHERE",     "UPDATE users SET age = 21",
                  "users", "age = 21", "");

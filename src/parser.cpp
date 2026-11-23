@@ -22,6 +22,14 @@ private:
     const std::vector<Token>& tokens;
     size_t pos = 0;
 
+    // Each ( in a WHERE recurses into parseOr(), and every condition adds a
+    // node to the expression tree, which the executor also walks recursively.
+    // Without a limit, a huge WHERE runs out of stack and crashes.
+    static const int MAX_NESTING = 1000;
+    static const int MAX_CONDITIONS = 1000;
+    int nesting = 0;
+    int conditions = 0;
+
     const Token& peek() {
         return tokens[pos];
     }
@@ -233,8 +241,11 @@ private:
 
     std::unique_ptr<Expr> parsePrimary() {
         if (match(TokenType::LPAREN)) {
+            if (++nesting > MAX_NESTING)
+                throw ParseError("WHERE is nested more than " + std::to_string(MAX_NESTING) + " levels deep");
             std::unique_ptr<Expr> inside = parseOr();
             expect(TokenType::RPAREN, ")");
+            nesting--;
             return inside;
         }
         return parseCondition();
@@ -250,6 +261,8 @@ private:
     }
 
     std::unique_ptr<Expr> parseCondition() {
+        if (++conditions > MAX_CONDITIONS)
+            throw ParseError("WHERE has more than " + std::to_string(MAX_CONDITIONS) + " conditions");
 
         std::unique_ptr<Expr> expr = std::make_unique<Expr>(); 
         expr->column = expect(TokenType::IDENTIFIER, "column name").text; 
