@@ -1,24 +1,9 @@
-// ============================================================================
-// Rajeev: the executor (runs parsed statements against the tables).
-// Tests:  make test-executor
-//
-// Do them in this order, the tests are in the same order:
-//   (createTable is done) -> insertRow -> selectRows -> matches + checkWhere (WHERE)
-//   -> updateRows -> deleteRows -> dropTable / truncateTable -> ORDER BY
-//
-// The checks ("validation") go at the top of each function, BEFORE anything
-// is changed. A statement that fails must leave every table exactly as it was.
-//
-// Already written for you (bottom of the file): execute(), the table lookups,
-// saveAll / loadAll and formatResult.
-//
-// Useful things that already exist:
 //   error("...")              -> a failed Result with that message
 //   done("...", n)            -> a successful Result with affected = n
 //   findColumn(columns, name) -> index of the column, or -1
 //   compareKeys(a, b)         -> from btree.h, < 0 / 0 / > 0, INT as numbers
 //   table->rows.insert / find / update / remove / traverseInOrder / size
-// ============================================================================
+
 #include "executor.h"
 #include "storage.h"
 #include <algorithm>
@@ -27,8 +12,6 @@
 #include <system_error>
 
 namespace fs = std::filesystem;
-
-// ---------- small helpers (already written) ----------
 
 static Result error(const std::string& message) {
     Result r;
@@ -45,7 +28,6 @@ static Result done(const std::string& message, size_t affected) {
     return r;
 }
 
-// Index of the column called `name`, or -1 if there isn't one.
 [[maybe_unused]] static int findColumn(const std::vector<Column>& columns, const std::string& name) {
     for (size_t i = 0; i < columns.size(); i++)
         if (columns[i].name == name) return static_cast<int>(i);
@@ -54,17 +36,10 @@ static Result done(const std::string& message, size_t affected) {
 
 [[maybe_unused]] static const char* typeName(ValueType t) { return t == ValueType::INT ? "INT" : "TEXT"; }
 
-// ---------- CREATE (done, use it as the example for the rest) ----------
-
-// The pattern every statement follows:
-//   checks first (return error(...) on the first problem),
-//   change things only once every check has passed,
-//   then return done(...).
 Result Database::createTable(const Statement& stmt) {
-    // 1. the table can't already exist
+    
     if (hasTable(stmt.table)) return error("table " + stmt.table + " already exists");
-
-    // 2. no two columns with the same name: CREATE TABLE t (a INT, a TEXT)
+    
     for (size_t i = 0; i < stmt.columns.size(); i++)
         for (size_t j = i + 1; j < stmt.columns.size(); j++)
             if (stmt.columns[i].name == stmt.columns[j].name)
@@ -89,10 +64,28 @@ Result Database::createTable(const Statement& stmt) {
 //    -> error "duplicate key".
 // 5. table->rows.insert(key, stmt.values);
 //    return done("1 row inserted", 1);
+
 Result Database::insertRow(const Statement& stmt) {
-    // TODO (Rajeev)
-    (void)stmt;
-    return error("INSERT is not written yet");
+    Table* table = findTable(stmt.table);
+    if (table == nullptr) return error("Could not find table: " + stmt.table);
+
+    if (stmt.values.size() != table->columns.size())
+        return error("Table " + stmt.table + " has " + std::to_string(table->columns.size()) +
+                     " columns, but " + std::to_string(stmt.values.size()) + " values were given");
+
+    for (size_t i = 0; i < stmt.values.size(); i++) {
+        const Column& column = table->columns[i];
+        const Value& value = stmt.values[i];
+        if (value.type != column.type)
+            return error("column " + column.name + " is " + typeName(column.type) +
+                         ", but the value " + value.text + " is " + typeName(value.type));
+    }
+
+    const Value& key = stmt.values[0];
+    if (table->rows.find(key) != nullptr) return error("duplicate key");
+
+    table->rows.insert(key, stmt.values);
+    return done("1 row inserted", 1);
 }
 
 // ---------- WHERE ----------
@@ -107,10 +100,21 @@ Result Database::insertRow(const Statement& stmt) {
 //                   age = 'old'   INT column, text value   -> error
 //                   name = 5      TEXT column, number      -> error
 [[maybe_unused]] static std::string checkWhere(const Expr* where, const std::vector<Column>& columns) {
-    // TODO (Rajeev)
-    (void)where;
-    (void)columns;
-    return "checkWhere is not written yet";
+    if (where == nullptr) return "";
+    if (where->kind != ExprKind::COMPARE) {
+        std::string err = checkWhere(where->left.get(), columns);
+        return err.empty() ? checkWhere(where->right.get(), columns) : err;
+    }
+
+    int i = findColumn(columns, where->column);
+    if (i < 0) return "no such column " + where->column;
+
+    if (columns[i].type != where->value.type)
+        return "column " + where->column + " is " + typeName(columns[i].type) +
+               ", but it is compared with the " + typeName(where->value.type) +
+               " value " + where->value.text;
+
+    return "";
 }
 
 // See executor.h.
@@ -126,11 +130,27 @@ Result Database::insertRow(const Statement& stmt) {
 //          LESS -> c < 0,   GREATER -> c > 0,
 //          LESS_EQUAL -> c <= 0,   GREATER_EQUAL -> c >= 0
 bool matches(const Expr* where, const Row& row, const std::vector<Column>& columns) {
-    // TODO (Rajeev)
-    (void)where;
-    (void)row;
-    (void)columns;
-    return false;
+    if (where == nullptr) return true;
+
+    if (where->kind == ExprKind::AND)
+        return matches(where->left.get(), row, columns) && matches(where->right.get(), row, columns);
+    if (where->kind == ExprKind::OR)
+        return matches(where->left.get(), row, columns) || matches(where->right.get(), row, columns);
+
+    int i = findColumn(columns, where->column);
+    if (i < 0) return false;
+    if (row[i].type != where->value.type) return false;
+
+    int c = compareKeys(row[i], where->value);
+    switch (where->op) {
+        case TokenType::EQUAL:         return c == 0;
+        case TokenType::NOT_EQUAL:     return c != 0;
+        case TokenType::LESS:          return c < 0;
+        case TokenType::GREATER:       return c > 0;
+        case TokenType::LESS_EQUAL:    return c <= 0;
+        case TokenType::GREATER_EQUAL: return c >= 0;
+        default:                       return false;
+    }
 }
 
 // ---------- SELECT ----------
@@ -157,9 +177,60 @@ bool matches(const Expr* where, const Row& row, const std::vector<Column>& colum
 // 8. Fill in the Result: ok, header, rows, affected = rows.size(),
 //    message like "3 rows".
 Result Database::selectRows(const Statement& stmt) const {
-    // TODO (Rajeev)
-    (void)stmt;
-    return error("SELECT is not written yet");
+    const Table* table = getTable(stmt.table);
+    if (table == nullptr) return error("no such table " + stmt.table);
+    const std::vector<Column>& columns = table->columns;
+
+    std::vector<std::string> header = stmt.selectColumns;
+    if (header.empty())
+        for (const Column& column : columns) header.push_back(column.name);
+
+    std::vector<int> pick;
+    for (const std::string& name : header) {
+        int i = findColumn(columns, name);
+        if (i < 0) return error("no such column " + name);
+        pick.push_back(i);
+    }
+
+    std::string bad = checkWhere(stmt.where.get(), columns);
+    if (!bad.empty()) return error(bad);
+
+    std::vector<std::pair<int, bool>> sortKeys;
+    for (const auto& item : stmt.orderBy) {
+        int i = findColumn(columns, item.column);
+        if (i < 0) return error("no such column " + item.column);
+        sortKeys.emplace_back(i, item.desc);
+    }
+
+    std::vector<Row> kept;
+    for (const auto& entry : table->rows.traverseInOrder())
+        if (matches(stmt.where.get(), entry.second, columns))
+            kept.push_back(entry.second);
+
+    if (!sortKeys.empty())
+        std::stable_sort(kept.begin(), kept.end(), [&](const Row& a, const Row& b) {
+            for (const auto& [idx, desc] : sortKeys) {
+                int c = compareKeys(a[idx], b[idx]);
+                if (c != 0) return desc ? c > 0 : c < 0;
+            }
+            return false;
+        });
+
+    std::vector<Row> out;
+    out.reserve(kept.size());
+    for (const Row& row : kept) {
+        Row shaped;
+        for (int idx : pick) shaped.push_back(row[idx]);
+        out.push_back(std::move(shaped));
+    }
+
+    Result r;
+    r.ok = true;
+    r.header = header;
+    r.rows = std::move(out);
+    r.affected = r.rows.size();
+    r.message = std::to_string(r.rows.size()) + (r.rows.size() == 1 ? " row" : " rows");
+    return r;
 }
 
 // ---------- UPDATE ----------
@@ -180,9 +251,36 @@ Result Database::selectRows(const Statement& stmt) const {
 //    Never change the tree while you're still walking through it.
 // 6. return done("<n> rows updated", n);
 Result Database::updateRows(const Statement& stmt) {
-    // TODO (Rajeev)
-    (void)stmt;
-    return error("UPDATE is not written yet");
+    Table* table = findTable(stmt.table);
+    if (table == nullptr) return error("no such table " + stmt.table);
+    const std::vector<Column>& columns = table->columns;
+
+    std::vector<std::pair<int, const Value*>> changes;
+    for (const auto& a : stmt.assignments) {
+        int i = findColumn(columns, a.column);
+        if (i < 0) return error("no such column " + a.column);
+        if (i == 0) return error("the key column " + a.column + " can't be changed");
+        if (a.value.type != columns[i].type)
+            return error("column " + a.column + " is " + typeName(columns[i].type) +
+                         ", but the value " + a.value.text + " is " + typeName(a.value.type));
+        changes.emplace_back(i, &a.value);
+    }
+
+    std::string bad = checkWhere(stmt.where.get(), columns);
+    if (!bad.empty()) return error(bad);
+
+    std::vector<std::pair<Value, Row>> updates;
+    for (const auto& entry : table->rows.traverseInOrder()) {
+        if (!matches(stmt.where.get(), entry.second, columns)) continue;
+        Row newRow = entry.second;
+        for (const auto& [idx, value] : changes) newRow[idx] = *value;
+        updates.emplace_back(entry.first, std::move(newRow));
+    }
+
+    for (const auto& [key, row] : updates) table->rows.update(key, row);
+
+    size_t n = updates.size();
+    return done(std::to_string(n) + " rows updated", n);
 }
 
 // ---------- DELETE ----------
@@ -194,9 +292,20 @@ Result Database::updateRows(const Statement& stmt) {
 //    (Removing moves keys between nodes, so never remove while walking.)
 // 5. return done("<n> rows deleted", n);
 Result Database::deleteRows(const Statement& stmt) {
-    // TODO (Rajeev)
-    (void)stmt;
-    return error("DELETE is not written yet");
+    Table* table = findTable(stmt.table);
+    if (table == nullptr) return error("no such table " + stmt.table);
+
+    std::string bad = checkWhere(stmt.where.get(), table->columns);
+    if (!bad.empty()) return error(bad);
+
+    std::vector<Value> keys;
+    for (const auto& entry : table->rows.traverseInOrder())
+        if (matches(stmt.where.get(), entry.second, table->columns)) keys.push_back(entry.first);
+
+    for (const Value& key : keys) table->rows.remove(key);
+
+    size_t n = keys.size();
+    return done(std::to_string(n) + " rows deleted", n);
 }
 
 // ---------- DROP / TRUNCATE ----------
@@ -205,9 +314,9 @@ Result Database::deleteRows(const Statement& stmt) {
 // 2. tables.erase(stmt.table);   (unique_ptr frees the Table and its tree)
 // 3. return done("Table <name> dropped", 0);
 Result Database::dropTable(const Statement& stmt) {
-    // TODO (Rajeev)
-    (void)stmt;
-    return error("DROP is not written yet");
+    if (!hasTable(stmt.table)) return error("no such table " + stmt.table);
+    tables.erase(stmt.table);
+    return done("Table " + stmt.table + " dropped", 0);
 }
 
 // Removes every row but keeps the table and its columns.
@@ -220,9 +329,15 @@ Result Database::dropTable(const Statement& stmt) {
 //                                              so don't use `table` after this)
 // 4. return done("<n> rows removed", n);
 Result Database::truncateTable(const Statement& stmt) {
-    // TODO (Rajeev)
-    (void)stmt;
-    return error("TRUNCATE is not written yet");
+    Table* table = findTable(stmt.table);
+    if (table == nullptr) return error("no such table " + stmt.table);
+
+    size_t n = table->rows.size();
+    auto fresh = std::make_unique<Table>();
+    fresh->columns = table->columns;
+    tables[stmt.table] = std::move(fresh);
+
+    return done(std::to_string(n) + " rows removed", n);
 }
 
 // ============================================================================

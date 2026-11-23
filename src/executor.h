@@ -1,17 +1,4 @@
 #pragma once
-// The executor: runs a parsed Statement against the tables.
-//
-// Each table keeps its rows in a BTree keyed by its FIRST column:
-//   CREATE TABLE users (id INT, name TEXT, age INT)
-//   INSERT INTO users VALUES (1, 'bob', 20)    ->  rows.insert(key {1}, row {1, 'bob', 20})
-//
-// execute() never prints anything. It returns a Result and the REPL
-// (main.cpp) prints it with formatResult().
-//
-// A failed statement (ok = false) must not change anything at all.
-//
-// DO NOT change this file without telling the group: the tests depend on
-// these exact names.
 
 #include "btree.h"
 #include "statement.h"
