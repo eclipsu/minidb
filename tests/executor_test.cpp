@@ -1006,6 +1006,27 @@ int main() {
 
     fs::remove_all(DIR);
 
+    std::cout << "\n-- 12. formatResult --\n";
+    {
+        std::string name = "UTF-8 text doesn't throw the borders off";
+        Database db;
+        if (setup(name, db, {"CREATE TABLE t (id INT, name TEXT)",
+                             "INSERT INTO t VALUES (1, 'José')",
+                             "INSERT INTO t VALUES (2, 'Bob')"})) {
+            std::string expected =
+                "+----+------+\n"
+                "| id | name |\n"
+                "+----+------+\n"
+                "|  1 | José |\n"
+                "|  2 | Bob  |\n"
+                "+----+------+\n"
+                "(2 rows)";
+            std::string actual = formatResult(run(db, "SELECT * FROM t"));
+            if (actual != expected) fail(name, "expected:\n" + expected + "\n        got:\n" + actual);
+            else pass(name);
+        }
+    }
+
     std::cout << "\n" << passed << " passed, " << failed << " failed\n";
     return failed == 0 ? 0 : 1;
 }
