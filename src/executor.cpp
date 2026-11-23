@@ -503,15 +503,24 @@ Result Database::loadAll(const std::string& dir) {
 
 // ---------- printing ----------
 
+// Number of characters in UTF-8 text. size() counts bytes, so 'é' would be
+// 2 and throw the column borders off. Continuation bytes look like 10xxxxxx.
+static size_t displayWidth(const std::string& text) {
+    size_t n = 0;
+    for (unsigned char c : text)
+        if ((c & 0xC0) != 0x80) n++;
+    return n;
+}
+
 std::string formatResult(const Result& r) {
     if (!r.ok) return "Error: " + r.message;
     if (r.header.empty()) return r.message;
 
     std::vector<size_t> width;
-    for (const std::string& h : r.header) width.push_back(h.size());
+    for (const std::string& h : r.header) width.push_back(displayWidth(h));
     for (const Row& row : r.rows)
         for (size_t i = 0; i < row.size() && i < width.size(); i++)
-            width[i] = std::max(width[i], row[i].text.size());
+            width[i] = std::max(width[i], displayWidth(row[i].text));
 
     std::ostringstream out;
     auto line = [&]() {
@@ -523,7 +532,7 @@ std::string formatResult(const Result& r) {
         out << "|";
         for (size_t i = 0; i < width.size(); i++) {
             std::string text = i < texts.size() ? texts[i] : "";
-            std::string pad(width[i] - text.size(), ' ');
+            std::string pad(width[i] - displayWidth(text), ' ');
             out << " " << (rightAlign[i] ? pad + text : text + pad) << " |";
         }
         out << "\n";
