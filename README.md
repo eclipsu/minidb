@@ -129,12 +129,12 @@ GUIDE.MD             how we split up the B-Tree work
 
 ## Team
 
-- Rajeev Shrestha: tokenizer, parser, REPL, database engine
-- Hushay Madzingira: B-Tree insert, find, update, traversal
-- Zander Dennison: B-Tree remove
+- [Rajeev Shrestha](https://github.com/eclipsu): tokenizer, parser, REPL, database engine
+- [Hushay Madzingira](https://github.com/hushaymadzingira): B-Tree insert, find, update, traversal
+- [Zander Dennison](https://github.com/ZanderSD): B-Tree remove
 
 ## References
 
 - [Crafting Interpreters](https://craftinginterpreters.com/) (scanning and parsing chapters)
-- CLRS, *Introduction to Algorithms*, chapter 18
+- CLRS, _Introduction to Algorithms_, chapter 18
 - [USFCA B-Tree visualizer](https://www.cs.usfca.edu/~galles/visualization/BTree.html)
