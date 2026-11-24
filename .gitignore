@@ -19,10 +19,9 @@
 .idea/
 *.swp
 .DS_Store
-./minidb
-./parser_tests
+/parser_tests
 
 *.txt
-minidb_bench
+/minidb_bench
 # Submission archive
 *.zip
